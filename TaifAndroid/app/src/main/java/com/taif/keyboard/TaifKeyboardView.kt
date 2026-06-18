@@ -42,8 +42,8 @@ class TaifKeyboardView @JvmOverloads constructor(
     private var currentImeOptions: Int = EditorInfo.IME_ACTION_UNSPECIFIED
     private var isSensitiveMode: Boolean = false
 
-    private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
     // Main layout container (LinearLayout) and Floating Preview Overlay
     private val keyboardLayout: LinearLayout
@@ -666,17 +666,27 @@ class TaifKeyboardView @JvmOverloads constructor(
 
     private fun playClickSound() {
         if (settings.isSoundEnabled) {
-            audioManager.playSoundEffect(AudioManager.FX_KEYPRESS_STANDARD)
+            try {
+                audioManager?.playSoundEffect(AudioManager.FX_KEYPRESS_STANDARD)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
     private fun playHaptic() {
         if (settings.isHapticEnabled) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(15)
+            try {
+                vibrator?.let {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        it.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        it.vibrate(15)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
