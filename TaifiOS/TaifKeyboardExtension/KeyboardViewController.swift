@@ -156,18 +156,18 @@ class KeyboardViewController: UIInputViewController {
             let gradient = CAGradientLayer()
             gradient.frame = view.bounds
             gradient.colors = [
-                UIColor(red: 29/255, green: 78/255, blue: 216/255, alpha: 1).cgColor,
-                UIColor(red: 236/255, green: 72/255, blue: 153/255, alpha: 1).cgColor
+                UIColor(red: 29.0/255.0, green: 78.0/255.0, blue: 216.0/255.0, alpha: 1).cgColor,
+                UIColor(red: 236.0/255.0, green: 72.0/255.0, blue: 153.0/255.0, alpha: 1).cgColor
             ]
             gradient.startPoint = CGPoint(x: 0, y: 0)
             gradient.endPoint = CGPoint(x: 1, y: 1)
             
             // Remove previous gradients if any
-            view.layer.sublayers?.filter { $0 is CAGradientLayer }.forEach { $0.removeFromSuperview() }
+            view.layer.sublayers?.filter { $0 is CAGradientLayer }.forEach { $0.removeFromSuperlayer() }
             view.layer.insertSublayer(gradient, at: 0)
         } else {
             view.layer.sublayers?.filter { $0 is CAGradientLayer }.forEach { $0.removeFromSuperlayer() }
-            view.backgroundColor = isLight ? UIColor(red: 244/255, green: 244/255, blue: 240/255, alpha: 1) : UIColor(red: 28/255, green: 28/255, blue: 34/255, alpha: 1)
+            view.backgroundColor = isLight ? UIColor(red: 244.0/255.0, green: 244.0/255.0, blue: 240.0/255.0, alpha: 1) : UIColor(red: 28.0/255.0, green: 28.0/255.0, blue: 34.0/255.0, alpha: 1)
         }
         
         // Stylize all buttons
@@ -181,10 +181,10 @@ class KeyboardViewController: UIInputViewController {
                 
                 if isSpaceOrEnter {
                     // Modern gradient background for spacebar
-                    btn.backgroundColor = UIColor(red: 236/255, green: 72/255, blue: 153/255, alpha: 1) // Fallback pink
+                    btn.backgroundColor = UIColor(red: 236.0/255.0, green: 72.0/255.0, blue: 153.0/255.0, alpha: 1) // Fallback pink
                     btn.setTitleColor(.white, for: .normal)
                 } else {
-                    btn.backgroundColor = isLight ? .white : UIColor(red: 45/255, green: 45/255, blue: 53/255, alpha: 1)
+                    btn.backgroundColor = isLight ? .white : UIColor(red: 45.0/255.0, green: 45.0/255.0, blue: 53.0/255.0, alpha: 1)
                     btn.setTitleColor(isLight ? .black : .white, for: .normal)
                 }
             }

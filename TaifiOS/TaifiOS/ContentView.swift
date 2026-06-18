@@ -11,7 +11,7 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             // Background
-            Color(red: 15/255, green: 23/255, blue: 42/255)
+            Color(red: 15.0/255.0, green: 23.0/255.0, blue: 42.0/255.0)
                 .ignoresSafeArea()
             
             ScrollView {
@@ -26,13 +26,13 @@ struct ContentView: View {
                             .shadow(radius: 5)
                         
                         Circle()
-                            .fill(LinearGradient(colors: [.cyan, .blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .fill(LinearGradient(gradient: Gradient(colors: [.cyan, .blue, .purple]), startPoint: .topLeading, endPoint: .bottomTrailing))
                             .frame(width: 24, height: 24)
                             .offset(x: 22, y: -22)
                         
                         Text("ط")
                             .font(.system(size: 58, weight: .bold))
-                            .foregroundColor(Color(red: 30/255, green: 41/255, blue: 59/255))
+                            .foregroundColor(Color(red: 30.0/255.0, green: 41.0/255.0, blue: 59.0/255.0))
                     }
                     
                     VStack(spacing: 6) {
@@ -42,7 +42,7 @@ struct ContentView: View {
                         
                         Text("لوحة المفاتيح الذكية والجمالية الأولى")
                             .font(.system(size: 14))
-                            .foregroundColor(Color(red: 148/255, green: 163/255, blue: 184/255))
+                            .foregroundColor(Color(red: 148.0/255.0, green: 163.0/255.0, blue: 184.0/255.0))
                             .multilineTextAlignment(.center)
                     }
                     
@@ -80,7 +80,7 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("اختر المظهر (Select Theme)")
                                 .font(.system(size: 14))
-                                .foregroundColor(Color(red: 148/255, green: 163/255, blue: 184/255))
+                                .foregroundColor(Color(red: 148.0/255.0, green: 163.0/255.0, blue: 184.0/255.0))
                             
                             HStack(spacing: 10) {
                                 ForEach(themes, id: \.self) { theme in
@@ -94,35 +94,41 @@ struct ContentView: View {
                         
                         // Toggles
                         VStack(spacing: 0) {
-                            Toggle("صوت المفاتيح عند النقر", isOn: $isSoundEnabled)
-                                .onChange(of: isSoundEnabled) { value in
-                                    SettingsManager.shared.isSoundEnabled = value
+                            Toggle("صوت المفاتيح عند النقر", isOn: Binding(
+                                get: { self.isSoundEnabled },
+                                set: { newValue in
+                                    self.isSoundEnabled = newValue
+                                    SettingsManager.shared.isSoundEnabled = newValue
                                 }
-                                .padding()
-                                .foregroundColor(.white)
+                            ))
+                            .padding()
+                            .foregroundColor(.white)
                             
-                            Divider().background(Color(red: 51/255, green: 65/255, blue: 85/255))
+                            Divider().background(Color(red: 51.0/255.0, green: 65.0/255.0, blue: 85.0/255.0))
                             
-                            Toggle("اهتزاز المفاتيح عند النقر", isOn: $isHapticEnabled)
-                                .onChange(of: isHapticEnabled) { value in
-                                    SettingsManager.shared.isHapticEnabled = value
+                            Toggle("اهتزاز المفاتيح عند النقر", isOn: Binding(
+                                get: { self.isHapticEnabled },
+                                set: { newValue in
+                                    self.isHapticEnabled = newValue
+                                    SettingsManager.shared.isHapticEnabled = newValue
                                 }
-                                .padding()
-                                .foregroundColor(.white)
+                            ))
+                            .padding()
+                            .foregroundColor(.white)
                         }
-                        .background(Color(red: 30/255, green: 41/255, blue: 59/255))
+                        .background(Color(red: 30.0/255.0, green: 41.0/255.0, blue: 59.0/255.0))
                         .cornerRadius(16)
                     }
                     
                     // Textfield to test keyboard
                     TextField("جرب لوحة المفاتيح واكتب هنا...", text: $testText)
                         .padding()
-                        .background(Color(red: 30/255, green: 41/255, blue: 59/255))
+                        .background(Color(red: 30.0/255.0, green: 41.0/255.0, blue: 59.0/255.0))
                         .cornerRadius(12)
                         .foregroundColor(.white)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color(red: 51/255, green: 65/255, blue: 85/255), lineWidth: 1.5)
+                                .stroke(Color(red: 51.0/255.0, green: 65.0/255.0, blue: 85.0/255.0), lineWidth: 1.5)
                         )
                     
                     Spacer().frame(height: 40)
@@ -144,7 +150,7 @@ struct OnboardingStepRow: View {
             HStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(Color(red: 59/255, green: 130/255, blue: 246/255))
+                        .fill(Color(red: 59.0/255.0, green: 130.0/255.0, blue: 246.0/255.0))
                         .frame(width: 40, height: 40)
                     
                     Text("\(step)")
@@ -158,7 +164,7 @@ struct OnboardingStepRow: View {
                         .foregroundColor(.white)
                     Text(desc)
                         .font(.system(size: 13))
-                        .foregroundColor(Color(red: 148/255, green: 163/255, blue: 184/255))
+                        .foregroundColor(Color(red: 148.0/255.0, green: 163.0/255.0, blue: 184.0/255.0))
                         .multilineTextAlignment(.leading)
                 }
                 
@@ -168,11 +174,11 @@ struct OnboardingStepRow: View {
                     .foregroundColor(.gray)
             }
             .padding()
-            .background(Color(red: 30/255, green: 41/255, blue: 59/255))
+            .background(Color(red: 30.0/255.0, green: 41.0/255.0, blue: 59.0/255.0))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(red: 51/255, green: 65/255, blue: 85/255), lineWidth: 1.5)
+                    .stroke(Color(red: 51.0/255.0, green: 65.0/255.0, blue: 85.0/255.0), lineWidth: 1.5)
             )
         }
     }
@@ -188,15 +194,15 @@ struct ThemeCard: View {
             VStack {
                 if themeName == "spectrum" {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(LinearGradient(colors: [.blue, .purple, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .fill(LinearGradient(gradient: Gradient(colors: [.blue, .purple, .pink]), startPoint: .topLeading, endPoint: .bottomTrailing))
                         .frame(height: 60)
                 } else if themeName == "dark" {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(red: 28/255, green: 28/255, blue: 34/255))
+                        .fill(Color(red: 28.0/255.0, green: 28.0/255.0, blue: 34.0/255.0))
                         .frame(height: 60)
                 } else {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(red: 244/255, green: 244/255, blue: 240/255))
+                        .fill(Color(red: 244.0/255.0, green: 244.0/255.0, blue: 240.0/255.0))
                         .frame(height: 60)
                 }
                 
@@ -205,7 +211,7 @@ struct ThemeCard: View {
                     .foregroundColor(.white)
             }
             .padding(8)
-            .background(Color(red: 30/255, green: 41/255, blue: 59/255))
+            .background(Color(red: 30.0/255.0, green: 41.0/255.0, blue: 59.0/255.0))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
