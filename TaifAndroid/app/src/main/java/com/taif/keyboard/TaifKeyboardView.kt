@@ -313,11 +313,10 @@ class TaifKeyboardView @JvmOverloads constructor(
     private fun TextView.setKeyBackground(selected: Boolean) {
         val theme = settings.selectedTheme
         val activeBgColor = if (theme == SettingsManager.THEME_LIGHT) "#E5E5DB" else "#3D3D48"
-        val inactiveBgColor = "transparent"
 
         background = GradientDrawable().apply {
             cornerRadius = dpToPx(15).toFloat()
-            setColor(Color.parseColor(if (selected) activeBgColor else inactiveBgColor))
+            setColor(if (selected) Color.parseColor(activeBgColor) else Color.TRANSPARENT)
         }
         if (selected) {
             setTextColor(if (theme == SettingsManager.THEME_LIGHT) Color.BLACK else Color.WHITE)
