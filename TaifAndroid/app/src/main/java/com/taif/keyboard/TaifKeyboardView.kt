@@ -62,7 +62,6 @@ class TaifKeyboardView @JvmOverloads constructor(
         clipChildren = false
         clipToPadding = false
 
-        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         setPadding(dpToPx(6), dpToPx(8), dpToPx(6), dpToPx(8))
 
         // 1. Initialize main keyboard vertical layout
