@@ -16,9 +16,9 @@ targets:
     type: app-extension
     platform: iOS
     deploymentTarget: "15.0"
-    bundleId: com.taif.TaifiOS.TaifKeyboardExtension
     sources: 
       - TaifKeyboardExtension
       - TaifiOS/SettingsManager.swift
     settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.taif.TaifiOS.TaifKeyboardExtension
       INFOPLIST_FILE: TaifKeyboardExtension/Info.plist
