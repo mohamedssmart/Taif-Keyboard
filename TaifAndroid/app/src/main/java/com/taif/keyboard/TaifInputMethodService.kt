@@ -97,42 +97,53 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
     }
 
     override fun onKeyClick(code: Int, text: String?) {
-        val ic = currentInputConnection ?: return
+        try {
+            val ic = currentInputConnection ?: return
 
-        when (code) {
-            KeyboardKey.CODE_BACKSPACE -> {
-                // Delete one character
-                val selectedText = ic.getSelectedText(0)
-                if (selectedText.isNullOrEmpty()) {
-                    ic.deleteSurroundingText(1, 0)
-                } else {
-                    ic.commitText("", 1)
+            when (code) {
+                KeyboardKey.CODE_BACKSPACE -> {
+                    // Delete one character
+                    val selectedText = ic.getSelectedText(0)
+                    if (selectedText.isNullOrEmpty()) {
+                        ic.deleteSurroundingText(1, 0)
+                    } else {
+                        ic.commitText("", 1)
+                    }
+                }
+                KeyboardKey.CODE_ENTER -> {
+                    val editorInfo = currentInputEditorInfo
+                    if (editorInfo != null) {
+                        val action = editorInfo.actionId
+                        val actionId = editorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
+                        if (action != 0) {
+                            ic.performEditorAction(action)
+                        } else if (actionId != EditorInfo.IME_ACTION_NONE && actionId != EditorInfo.IME_ACTION_UNSPECIFIED) {
+                            ic.performEditorAction(actionId)
+                        } else {
+                            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                        }
+                    } else {
+                        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                        ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                    }
+                }
+                KeyboardKey.CODE_SETTINGS -> {
+                    // Open Settings/Onboarding App
+                    val intent = Intent(this, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(intent)
+                }
+                else -> {
+                    if (text != null) {
+                        ic.commitText(text, 1)
+                    }
                 }
             }
-            KeyboardKey.CODE_ENTER -> {
-                val action = currentInputEditorInfo.actionId
-                val actionId = currentInputEditorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
-                if (action != 0) {
-                    ic.performEditorAction(action)
-                } else if (actionId != EditorInfo.IME_ACTION_NONE && actionId != EditorInfo.IME_ACTION_UNSPECIFIED) {
-                    ic.performEditorAction(actionId)
-                } else {
-                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
-                }
-            }
-            KeyboardKey.CODE_SETTINGS -> {
-                // Open Settings/Onboarding App
-                val intent = Intent(this, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(intent)
-            }
-            else -> {
-                if (text != null) {
-                    ic.commitText(text, 1)
-                }
-            }
+        } catch (e: Exception) {
+            android.util.Log.e("TaifKeyboard", "Error in onKeyClick", e)
+            saveCrashLog(e)
         }
     }
 }
