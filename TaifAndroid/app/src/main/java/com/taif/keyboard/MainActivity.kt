@@ -67,6 +67,7 @@ fun OnboardingScreen() {
     var hapticEnabled by remember { mutableStateOf(settingsManager.isHapticEnabled) }
     var currentTheme by remember { mutableStateOf(settingsManager.selectedTheme) }
     var testText by remember { mutableStateOf("") }
+    var crashLog by remember { mutableStateOf(settingsManager.lastCrashLog) }
 
     // Check keyboard status when app opens or resumes from settings
     fun checkStatus() {
@@ -77,6 +78,8 @@ fun OnboardingScreen() {
 
         val currentImeId = Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD) ?: ""
         isSelected = currentImeId.contains(packageId)
+        
+        crashLog = settingsManager.lastCrashLog
     }
 
     // Monitor lifecycle events to refresh status when user returns from settings
@@ -109,6 +112,52 @@ fun OnboardingScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(20.dp))
+
+        if (crashLog.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)),
+                border = BorderStroke(1.5.dp, Color(0xFFF87171))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "خطأ في تشغيل الكيبورد (Last Crash):",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Button(
+                            onClick = {
+                                settingsManager.lastCrashLog = ""
+                                crashLog = ""
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text("مسح (Clear)", color = Color.White, fontSize = 11.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = crashLog,
+                        color = Color(0xFFFCA5A5),
+                        fontSize = 11.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        modifier = Modifier
+                            .heightIn(max = 200.dp)
+                            .verticalScroll(rememberScrollState())
+                    )
+                }
+            }
+        }
 
         // Styled "ط" logo container matching the user's icon
         Box(

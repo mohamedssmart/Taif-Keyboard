@@ -22,12 +22,17 @@ class SettingsManager(context: Context) {
         get() = prefs.getString(KEY_LANG, LANG_ARABIC) ?: LANG_ARABIC
         set(value) = prefs.edit().putString(KEY_LANG, value).apply()
 
+    var lastCrashLog: String
+        get() = prefs.getString(KEY_CRASH_LOG, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CRASH_LOG, value).apply()
+
     companion object {
         private const val PREFS_NAME = "taif_settings"
         private const val KEY_SOUND = "sound_enabled"
         private const val KEY_HAPTIC = "haptic_enabled"
         private const val KEY_THEME = "keyboard_theme"
         private const val KEY_LANG = "keyboard_lang"
+        private const val KEY_CRASH_LOG = "last_crash_log"
 
         const val THEME_LIGHT = "light"
         const val THEME_DARK = "dark"

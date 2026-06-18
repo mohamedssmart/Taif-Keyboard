@@ -569,7 +569,7 @@ class TaifKeyboardView @JvmOverloads constructor(
         }
 
         val scroll = HorizontalScrollView(context).apply {
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
         }
 
         val emojiContainer = LinearLayout(context).apply {

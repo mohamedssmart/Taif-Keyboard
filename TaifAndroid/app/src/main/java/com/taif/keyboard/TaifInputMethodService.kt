@@ -18,6 +18,7 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
             view
         } catch (e: Exception) {
             android.util.Log.e("TaifKeyboard", "Error creating keyboard view", e)
+            saveCrashLog(e)
             View(this) // Fallback view to prevent system force close
         }
     }
@@ -50,6 +51,7 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
             updateAutoCapsState()
         } catch (e: Exception) {
             android.util.Log.e("TaifKeyboard", "Error in onStartInputView", e)
+            saveCrashLog(e)
         }
     }
 
@@ -66,6 +68,7 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
             updateAutoCapsState()
         } catch (e: Exception) {
             android.util.Log.e("TaifKeyboard", "Error in onUpdateSelection", e)
+            saveCrashLog(e)
         }
     }
 
@@ -78,6 +81,18 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
             keyboardView?.setAutoShift(shouldShift)
         } catch (e: Exception) {
             android.util.Log.e("TaifKeyboard", "Error in updateAutoCapsState", e)
+            saveCrashLog(e)
+        }
+    }
+
+    private fun saveCrashLog(e: Exception) {
+        try {
+            val sw = java.io.StringWriter()
+            e.printStackTrace(java.io.PrintWriter(sw))
+            val logString = sw.toString()
+            SettingsManager(this).lastCrashLog = logString
+        } catch (ex: Exception) {
+            ex.printStackTrace()
         }
     }
 
