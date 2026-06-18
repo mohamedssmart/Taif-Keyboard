@@ -225,7 +225,7 @@ class TaifKeyboardView @JvmOverloads constructor(
                 textSize = 18f
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(dpToPx(36), dpToPx(36)).apply {
-                    marginStart = dpToPx(4)
+                    leftMargin = dpToPx(4)
                 }
                 setOnClickListener {
                     playFeedback()
@@ -273,9 +273,9 @@ class TaifKeyboardView @JvmOverloads constructor(
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             setTextColor(if (currentMode == Mode.ARABIC && !isEmojiVisible) Color.WHITE else Color.GRAY)
-            setBackgroundResource(currentMode == Mode.ARABIC && !isEmojiVisible)
+            setKeyBackground(currentMode == Mode.ARABIC && !isEmojiVisible)
             layoutParams = LinearLayout.LayoutParams(dpToPx(60), dpToPx(30)).apply {
-                marginEnd = dpToPx(4)
+                rightMargin = dpToPx(4)
             }
             setOnClickListener {
                 playFeedback()
@@ -291,9 +291,9 @@ class TaifKeyboardView @JvmOverloads constructor(
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             setTextColor(if (currentMode == Mode.ENGLISH && !isEmojiVisible) Color.WHITE else Color.GRAY)
-            setBackgroundResource(currentMode == Mode.ENGLISH && !isEmojiVisible)
+            setKeyBackground(currentMode == Mode.ENGLISH && !isEmojiVisible)
             layoutParams = LinearLayout.LayoutParams(dpToPx(60), dpToPx(30)).apply {
-                marginEnd = dpToPx(4)
+                rightMargin = dpToPx(4)
             }
             setOnClickListener {
                 playFeedback()
@@ -310,7 +310,7 @@ class TaifKeyboardView @JvmOverloads constructor(
         return toolbar
     }
 
-    private fun TextView.setBackgroundResource(selected: Boolean) {
+    private fun TextView.setKeyBackground(selected: Boolean) {
         val theme = settings.selectedTheme
         val activeBgColor = if (theme == SettingsManager.THEME_LIGHT) "#E5E5DB" else "#3D3D48"
         val inactiveBgColor = "transparent"
@@ -349,8 +349,8 @@ class TaifKeyboardView @JvmOverloads constructor(
     private fun createKeyView(key: KeyboardKey): View {
         val frame = FrameLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, key.weight).apply {
-                marginStart = dpToPx(3)
-                marginEnd = dpToPx(3)
+                leftMargin = dpToPx(3)
+                rightMargin = dpToPx(3)
             }
             clipChildren = false
             clipToPadding = false
