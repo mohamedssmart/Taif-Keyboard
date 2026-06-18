@@ -26,6 +26,14 @@ class SettingsManager(context: Context) {
         get() = prefs.getString(KEY_CRASH_LOG, "") ?: ""
         set(value) = prefs.edit().putString(KEY_CRASH_LOG, value).apply()
 
+    var customPrimaryColor: String
+        get() = prefs.getString(KEY_CUSTOM_PRIMARY, "#3B82F6") ?: "#3B82F6"
+        set(value) = prefs.edit().putString(KEY_CUSTOM_PRIMARY, value).apply()
+
+    var customBgColor: String
+        get() = prefs.getString(KEY_CUSTOM_BG, "#0F172A") ?: "#0F172A"
+        set(value) = prefs.edit().putString(KEY_CUSTOM_BG, value).apply()
+
     companion object {
         private const val PREFS_NAME = "taif_settings"
         private const val KEY_SOUND = "sound_enabled"
@@ -33,11 +41,14 @@ class SettingsManager(context: Context) {
         private const val KEY_THEME = "keyboard_theme"
         private const val KEY_LANG = "keyboard_lang"
         private const val KEY_CRASH_LOG = "last_crash_log"
+        private const val KEY_CUSTOM_PRIMARY = "custom_primary_color"
+        private const val KEY_CUSTOM_BG = "custom_bg_color"
 
         const val THEME_LIGHT = "light"
         const val THEME_DARK = "dark"
         const val THEME_SPECTRUM = "spectrum"
         const val THEME_GLASSMORPHIC = "glassmorphic"
+        const val THEME_CUSTOM = "custom"
 
         const val LANG_ARABIC = "arabic"
         const val LANG_ENGLISH = "english"

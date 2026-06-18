@@ -144,6 +144,14 @@ class TaifKeyboardView @JvmOverloads constructor(
             SettingsManager.THEME_GLASSMORPHIC -> GradientDrawable().apply {
                 setColor(Color.parseColor("#CC101016")) // Dark glass
             }
+            SettingsManager.THEME_CUSTOM -> GradientDrawable().apply {
+                val color = try {
+                    Color.parseColor(settings.customBgColor)
+                } catch (e: Exception) {
+                    Color.parseColor("#0F172A")
+                }
+                setColor(color)
+            }
             else -> GradientDrawable().apply {
                 setColor(Color.parseColor("#1C1C22"))
             }
@@ -312,14 +320,27 @@ class TaifKeyboardView @JvmOverloads constructor(
 
     private fun TextView.setKeyBackground(selected: Boolean) {
         val theme = settings.selectedTheme
-        val activeBgColor = if (theme == SettingsManager.THEME_LIGHT) "#E5E5DB" else "#3D3D48"
+        val activeBgColor = when (theme) {
+            SettingsManager.THEME_LIGHT -> "#E5E5DB"
+            SettingsManager.THEME_CUSTOM -> settings.customPrimaryColor
+            else -> "#3D3D48"
+        }
 
         background = GradientDrawable().apply {
             cornerRadius = dpToPx(15).toFloat()
-            setColor(if (selected) Color.parseColor(activeBgColor) else Color.TRANSPARENT)
+            setColor(if (selected) {
+                try {
+                    Color.parseColor(activeBgColor)
+                } catch (e: Exception) {
+                    Color.parseColor("#3B82F6")
+                }
+            } else {
+                Color.TRANSPARENT
+            })
         }
         if (selected) {
-            setTextColor(if (theme == SettingsManager.THEME_LIGHT) Color.BLACK else Color.WHITE)
+            val isCustomLight = theme == SettingsManager.THEME_CUSTOM && isColorLight(settings.customPrimaryColor)
+            setTextColor(if (theme == SettingsManager.THEME_LIGHT || isCustomLight) Color.BLACK else Color.WHITE)
         } else {
             setTextColor(Color.GRAY)
         }
@@ -509,6 +530,41 @@ class TaifKeyboardView @JvmOverloads constructor(
                     }
                 }
             }
+            SettingsManager.THEME_CUSTOM -> {
+                val isBgLight = isColorLight(settings.customBgColor)
+                val textColor = if (isBgLight) Color.BLACK else Color.WHITE
+                textView.setTextColor(textColor)
+
+                if (key.code == KeyboardKey.CODE_SPACE || key.code == KeyboardKey.CODE_ENTER) {
+                    val customPrimaryDrawable = GradientDrawable().apply {
+                        val primColor = try {
+                            Color.parseColor(settings.customPrimaryColor)
+                        } catch (e: Exception) {
+                            Color.parseColor("#3B82F6")
+                        }
+                        setColor(primColor)
+                        cornerRadius = dpToPx(6).toFloat()
+                    }
+                    textView.background = customPrimaryDrawable
+                    val isPrimaryLight = isColorLight(settings.customPrimaryColor)
+                    textView.setTextColor(if (isPrimaryLight) Color.BLACK else Color.WHITE)
+                } else {
+                    textView.background = GradientDrawable().apply {
+                        val keyColor = if (isBgLight) {
+                            if (key.code < 0) "#30000000" else "#15000000"
+                        } else {
+                            if (key.code < 0) "#30FFFFFF" else "#15FFFFFF"
+                        }
+                        setColor(Color.parseColor(keyColor))
+                        cornerRadius = dpToPx(6).toFloat()
+                        if (!isBgLight) {
+                            setStroke(dpToPx(1), Color.parseColor("#10FFFFFF"))
+                        } else {
+                            setStroke(dpToPx(1), Color.parseColor("#10000000"))
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -692,5 +748,18 @@ class TaifKeyboardView @JvmOverloads constructor(
     private fun dpToPx(dp: Int): Int {
         val density = context.resources.displayMetrics.density
         return (dp * density).toInt()
+    }
+
+    private fun isColorLight(colorStr: String): Boolean {
+        return try {
+            val color = Color.parseColor(colorStr)
+            val r = Color.red(color)
+            val g = Color.green(color)
+            val b = Color.blue(color)
+            val luminance = (0.299 * r + 0.587 * g + 0.114 * b)
+            luminance > 160
+        } catch (e: Exception) {
+            false
+        }
     }
 }

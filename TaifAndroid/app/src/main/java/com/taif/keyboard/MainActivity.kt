@@ -68,6 +68,8 @@ fun OnboardingScreen() {
     var currentTheme by remember { mutableStateOf(settingsManager.selectedTheme) }
     var testText by remember { mutableStateOf("") }
     var crashLog by remember { mutableStateOf(settingsManager.lastCrashLog) }
+    var customPrimaryColor by remember { mutableStateOf(settingsManager.customPrimaryColor) }
+    var customBgColor by remember { mutableStateOf(settingsManager.customBgColor) }
 
     // Check keyboard status when app opens or resumes from settings
     fun checkStatus() {
@@ -80,6 +82,8 @@ fun OnboardingScreen() {
         isSelected = currentImeId.contains(packageId)
         
         crashLog = settingsManager.lastCrashLog
+        customPrimaryColor = settingsManager.customPrimaryColor
+        customBgColor = settingsManager.customBgColor
     }
 
     // Monitor lifecycle events to refresh status when user returns from settings
@@ -251,7 +255,7 @@ fun OnboardingScreen() {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Theme Row
+        // Theme Column
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "اختر المظهر (Select Theme)",
@@ -260,6 +264,7 @@ fun OnboardingScreen() {
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
+            // Row 1: Spectrum, Dark Glass, Light Warm
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -297,6 +302,177 @@ fun OnboardingScreen() {
                     },
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Row 2: Glassmorphic, Custom Colors
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ThemeCard(
+                    name = "Glassmorphic",
+                    color = Color(0x22FFFFFF),
+                    isSelected = currentTheme == SettingsManager.THEME_GLASSMORPHIC,
+                    onClick = {
+                        settingsManager.selectedTheme = SettingsManager.THEME_GLASSMORPHIC
+                        currentTheme = SettingsManager.THEME_GLASSMORPHIC
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                ThemeCard(
+                    name = "Custom Color 🎨",
+                    gradient = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF3B82F6),
+                            Color(0xFF10B981),
+                            Color(0xFFEC4899),
+                            Color(0xFFF97316),
+                            Color(0xFFBD93F9)
+                        )
+                    ),
+                    isSelected = currentTheme == SettingsManager.THEME_CUSTOM,
+                    onClick = {
+                        settingsManager.selectedTheme = SettingsManager.THEME_CUSTOM
+                        currentTheme = SettingsManager.THEME_CUSTOM
+                    },
+                    modifier = Modifier.weight(2f)
+                )
+            }
+
+            // Custom Theme Configuration
+            if (currentTheme == SettingsManager.THEME_CUSTOM) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "اختر لون الكيبورد الجاهز (Preset Colors):",
+                    fontSize = 13.sp,
+                    color = Color(0xFF3B82F6),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                // Row of colored circles
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    colorPresets.forEach { preset ->
+                        val isPresetSelected = customPrimaryColor.equals(preset.primaryColor, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(preset.displayColor)
+                                .border(
+                                    2.dp,
+                                    if (isPresetSelected) Color.White else Color.Transparent,
+                                    RoundedCornerShape(20.dp)
+                                )
+                                .clickable {
+                                    settingsManager.customPrimaryColor = preset.primaryColor
+                                    settingsManager.customBgColor = preset.bgColor
+                                    customPrimaryColor = preset.primaryColor
+                                    customBgColor = preset.bgColor
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isPresetSelected) {
+                                Text(
+                                    text = "✓",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "أو أدخل كود اللون الخاص بك (Custom Hex Colors):",
+                    fontSize = 13.sp,
+                    color = Color(0xFF3B82F6),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                // Input hex codes
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    var primaryInput by remember { mutableStateOf(customPrimaryColor) }
+                    var bgInput by remember { mutableStateOf(customBgColor) }
+
+                    OutlinedTextField(
+                        value = primaryInput,
+                        onValueChange = { primaryInput = it },
+                        label = { Text("لون المفاتيح (Hex)") },
+                        modifier = Modifier.weight(1.2f),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF3B82F6),
+                            unfocusedBorderColor = Color(0xFF334155),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = bgInput,
+                        onValueChange = { bgInput = it },
+                        label = { Text("لون الخلفية (Hex)") },
+                        modifier = Modifier.weight(1.2f),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF3B82F6),
+                            unfocusedBorderColor = Color(0xFF334155),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+
+                    Button(
+                        onClick = {
+                            var cleanPrimary = primaryInput.trim()
+                            var cleanBg = bgInput.trim()
+
+                            if (!cleanPrimary.startsWith("#")) {
+                                cleanPrimary = "#$cleanPrimary"
+                            }
+                            if (!cleanBg.startsWith("#")) {
+                                cleanBg = "#$cleanBg"
+                            }
+
+                            if (cleanPrimary.length in listOf(4, 7, 9)) {
+                                settingsManager.customPrimaryColor = cleanPrimary
+                                customPrimaryColor = cleanPrimary
+                                primaryInput = cleanPrimary
+                            }
+                            if (cleanBg.length in listOf(4, 7, 9)) {
+                                settingsManager.customBgColor = cleanBg
+                                customBgColor = cleanBg
+                                bgInput = cleanBg
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                        modifier = Modifier
+                            .height(56.dp)
+                            .weight(1f),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("تطبيق", color = Color.White, fontSize = 13.sp)
+                    }
+                }
             }
         }
 
@@ -469,3 +645,20 @@ fun ThemeCard(
         )
     }
 }
+
+data class ColorPreset(
+    val name: String,
+    val primaryColor: String,
+    val bgColor: String,
+    val displayColor: Color
+)
+
+val colorPresets = listOf(
+    ColorPreset("سماوي", "#06B6D4", "#083344", Color(0xFF06B6D4)),
+    ColorPreset("أخضر", "#10B981", "#064E3B", Color(0xFF10B981)),
+    ColorPreset("وردي", "#EC4899", "#1E1B4B", Color(0xFFEC4899)),
+    ColorPreset("برتقالي", "#F97316", "#431407", Color(0xFFF97316)),
+    ColorPreset("بنفسجي", "#BD93F9", "#282A36", Color(0xFFBD93F9)),
+    ColorPreset("أحمر", "#EF4444", "#450A0A", Color(0xFFEF4444)),
+    ColorPreset("أزرق", "#3B82F6", "#0F172A", Color(0xFF3B82F6))
+)
