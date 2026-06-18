@@ -466,68 +466,109 @@ class TaifKeyboardView @JvmOverloads constructor(
 
     private fun applyKeyThemeStyles(textView: TextView, key: KeyboardKey) {
         val theme = settings.selectedTheme
+        val radius = dpToPx(5).toFloat()
 
-        val lightKeyColor = "#FFFFFF"
-        val lightFuncColor = "#E5E5DB"
-        val darkKeyColor = "#2D2D35"
-        val darkFuncColor = "#3D3D48"
-
+        // 3D raised gradient space/enter key
         val gradientSpace = GradientDrawable(
             GradientDrawable.Orientation.LEFT_RIGHT,
             intArrayOf(Color.parseColor("#3B82F6"), Color.parseColor("#EC4899"))
         ).apply {
-            cornerRadius = dpToPx(6).toFloat()
+            cornerRadius = radius
         }
 
         when (theme) {
             SettingsManager.THEME_LIGHT -> {
                 textView.setTextColor(Color.parseColor("#1A1A1A"))
                 if (key.code == KeyboardKey.CODE_SPACE || key.code == KeyboardKey.CODE_ENTER) {
-                    textView.background = gradientSpace
+                    textView.background = createiOSKeyDrawable(
+                        topColor = null,
+                        topDrawable = gradientSpace,
+                        shadowColor = Color.parseColor("#1D4ED8"),
+                        radius = radius
+                    )
                     textView.setTextColor(Color.WHITE)
                 } else {
-                    textView.background = GradientDrawable().apply {
-                        setColor(Color.parseColor(if (key.code < 0) lightFuncColor else lightKeyColor))
-                        cornerRadius = dpToPx(6).toFloat()
-                    }
+                    val isFunc = key.code < 0
+                    val topColor = Color.parseColor(if (isFunc) "#D1D5DB" else "#FFFFFF")
+                    val shadowColor = Color.parseColor(if (isFunc) "#8B939C" else "#B3B9C1")
+                    textView.background = createiOSKeyDrawable(
+                        topColor = topColor,
+                        topDrawable = null,
+                        shadowColor = shadowColor,
+                        radius = radius
+                    )
                 }
             }
             SettingsManager.THEME_DARK -> {
                 textView.setTextColor(Color.WHITE)
                 if (key.code == KeyboardKey.CODE_SPACE || key.code == KeyboardKey.CODE_ENTER) {
-                    textView.background = gradientSpace
+                    textView.background = createiOSKeyDrawable(
+                        topColor = null,
+                        topDrawable = gradientSpace,
+                        shadowColor = Color.parseColor("#121214"),
+                        radius = radius
+                    )
                 } else {
-                    textView.background = GradientDrawable().apply {
-                        setColor(Color.parseColor(if (key.code < 0) darkFuncColor else darkKeyColor))
-                        cornerRadius = dpToPx(6).toFloat()
-                    }
+                    val isFunc = key.code < 0
+                    val topColor = Color.parseColor(if (isFunc) "#3A3A3C" else "#636366")
+                    val shadowColor = Color.parseColor("#151517")
+                    textView.background = createiOSKeyDrawable(
+                        topColor = topColor,
+                        topDrawable = null,
+                        shadowColor = shadowColor,
+                        radius = radius
+                    )
                 }
             }
             SettingsManager.THEME_SPECTRUM -> {
                 textView.setTextColor(Color.WHITE)
                 if (key.code == KeyboardKey.CODE_SPACE) {
-                    textView.background = GradientDrawable().apply {
+                    val spaceBg = GradientDrawable().apply {
                         setColor(Color.parseColor("#FFFFFF"))
-                        cornerRadius = dpToPx(6).toFloat()
+                        cornerRadius = radius
                     }
+                    textView.background = createiOSKeyDrawable(
+                        topColor = null,
+                        topDrawable = spaceBg,
+                        shadowColor = Color.parseColor("#50000000"),
+                        radius = radius
+                    )
                     textView.setTextColor(Color.parseColor("#EC4899"))
                 } else {
-                    textView.background = GradientDrawable().apply {
-                        setColor(Color.parseColor(if (key.code < 0) "#40000000" else "#20FFFFFF"))
-                        cornerRadius = dpToPx(6).toFloat()
-                    }
+                    val isFunc = key.code < 0
+                    val topColor = Color.parseColor(if (isFunc) "#40000000" else "#20FFFFFF")
+                    val shadowColor = Color.parseColor("#60000000")
+                    textView.background = createiOSKeyDrawable(
+                        topColor = topColor,
+                        topDrawable = null,
+                        shadowColor = shadowColor,
+                        radius = radius
+                    )
                 }
             }
             SettingsManager.THEME_GLASSMORPHIC -> {
                 textView.setTextColor(Color.WHITE)
                 if (key.code == KeyboardKey.CODE_SPACE || key.code == KeyboardKey.CODE_ENTER) {
-                    textView.background = gradientSpace
+                    textView.background = createiOSKeyDrawable(
+                        topColor = null,
+                        topDrawable = gradientSpace,
+                        shadowColor = Color.parseColor("#50000000"),
+                        radius = radius
+                    )
                 } else {
-                    textView.background = GradientDrawable().apply {
-                        setColor(Color.parseColor(if (key.code < 0) "#30FFFFFF" else "#15FFFFFF"))
-                        cornerRadius = dpToPx(6).toFloat()
-                        setStroke(dpToPx(1), Color.parseColor("#20FFFFFF"))
+                    val isFunc = key.code < 0
+                    val topColorStr = if (isFunc) "#30FFFFFF" else "#15FFFFFF"
+                    val topDrawable = GradientDrawable().apply {
+                        setColor(Color.parseColor(topColorStr))
+                        cornerRadius = radius
+                        setStroke(dpToPx(1), Color.parseColor("#10FFFFFF"))
                     }
+                    textView.background = createiOSKeyDrawable(
+                        topColor = null,
+                        topDrawable = topDrawable,
+                        shadowColor = Color.parseColor("#45000000"),
+                        radius = radius
+                    )
                 }
             }
             SettingsManager.THEME_CUSTOM -> {
@@ -536,33 +577,59 @@ class TaifKeyboardView @JvmOverloads constructor(
                 textView.setTextColor(textColor)
 
                 if (key.code == KeyboardKey.CODE_SPACE || key.code == KeyboardKey.CODE_ENTER) {
-                    val customPrimaryDrawable = GradientDrawable().apply {
-                        val primColor = try {
-                            Color.parseColor(settings.customPrimaryColor)
-                        } catch (e: Exception) {
-                            Color.parseColor("#3B82F6")
-                        }
-                        setColor(primColor)
-                        cornerRadius = dpToPx(6).toFloat()
+                    val primColor = try {
+                        Color.parseColor(settings.customPrimaryColor)
+                    } catch (e: Exception) {
+                        Color.parseColor("#3B82F6")
                     }
-                    textView.background = customPrimaryDrawable
+                    
+                    // Create primary drawable and a darker version of it for the shadow
+                    val primDrawable = GradientDrawable().apply {
+                        setColor(primColor)
+                        cornerRadius = radius
+                    }
+                    
+                    // Darker primary shadow color
+                    val hsv = FloatArray(3)
+                    Color.colorToHSV(primColor, hsv)
+                    hsv[2] *= 0.7f // decrease brightness by 30%
+                    val shadowColor = Color.HSVToColor(hsv)
+                    
+                    textView.background = createiOSKeyDrawable(
+                        topColor = null,
+                        topDrawable = primDrawable,
+                        shadowColor = shadowColor,
+                        radius = radius
+                    )
+                    
                     val isPrimaryLight = isColorLight(settings.customPrimaryColor)
                     textView.setTextColor(if (isPrimaryLight) Color.BLACK else Color.WHITE)
                 } else {
-                    textView.background = GradientDrawable().apply {
-                        val keyColor = if (isBgLight) {
-                            if (key.code < 0) "#30000000" else "#15000000"
-                        } else {
-                            if (key.code < 0) "#30FFFFFF" else "#15FFFFFF"
-                        }
-                        setColor(Color.parseColor(keyColor))
-                        cornerRadius = dpToPx(6).toFloat()
+                    val isFunc = key.code < 0
+                    val keyColorStr = if (isBgLight) {
+                        if (isFunc) "#30000000" else "#15000000"
+                    } else {
+                        if (isFunc) "#30FFFFFF" else "#15FFFFFF"
+                    }
+                    
+                    val keyColor = Color.parseColor(keyColorStr)
+                    val topDrawable = GradientDrawable().apply {
+                        setColor(keyColor)
+                        cornerRadius = radius
                         if (!isBgLight) {
-                            setStroke(dpToPx(1), Color.parseColor("#10FFFFFF"))
+                            setStroke(dpToPx(1), Color.parseColor("#08FFFFFF"))
                         } else {
-                            setStroke(dpToPx(1), Color.parseColor("#10000000"))
+                            setStroke(dpToPx(1), Color.parseColor("#08000000"))
                         }
                     }
+                    
+                    val shadowColor = if (isBgLight) Color.parseColor("#15000000") else Color.parseColor("#45000000")
+                    textView.background = createiOSKeyDrawable(
+                        topColor = null,
+                        topDrawable = topDrawable,
+                        shadowColor = shadowColor,
+                        radius = radius
+                    )
                 }
             }
         }
@@ -761,5 +828,30 @@ class TaifKeyboardView @JvmOverloads constructor(
         } catch (e: Exception) {
             false
         }
+    }
+
+    private fun createiOSKeyDrawable(
+        topColor: Int?,
+        topDrawable: android.graphics.drawable.Drawable?,
+        shadowColor: Int,
+        radius: Float
+    ): android.graphics.drawable.Drawable {
+        val shadow = GradientDrawable().apply {
+            setColor(shadowColor)
+            cornerRadius = radius
+        }
+
+        val top = topDrawable ?: GradientDrawable().apply {
+            setColor(topColor ?: Color.WHITE)
+            cornerRadius = radius
+        }
+
+        val layers = arrayOf(shadow, top)
+        val layerDrawable = android.graphics.drawable.LayerDrawable(layers)
+
+        // Shift top layer up by 2dp to reveal shadow at the bottom
+        layerDrawable.setLayerInset(1, 0, 0, 0, dpToPx(2))
+
+        return layerDrawable
     }
 }
