@@ -9,8 +9,12 @@ import android.view.inputmethod.EditorInfo
 class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClickListener {
 
     private var keyboardView: TaifKeyboardView? = null
+    private lateinit var dictionaryManager: DictionaryManager
+    private val composingWord = StringBuilder()
+    private var isSensitiveMode = false
 
     override fun onCreateInputView(): View {
+        dictionaryManager = DictionaryManager(this)
         return try {
             val view = TaifKeyboardView(this)
             view.keyClickListener = this
@@ -26,6 +30,8 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         try {
             super.onStartInputView(info, restarting)
+            composingWord.clear()
+            keyboardView?.clearSuggestions()
             
             val kView = keyboardView ?: return
             
@@ -45,6 +51,7 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
                     variation == EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
                     variation == EditorInfo.TYPE_TEXT_VARIATION_WEB_PASSWORD
                     )
+            isSensitiveMode = isPassword
             kView.setSensitiveMode(isPassword)
 
             // 4. Handle initial Auto-Capitalization state
@@ -52,6 +59,17 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
         } catch (e: Exception) {
             android.util.Log.e("TaifKeyboard", "Error in onStartInputView", e)
             saveCrashLog(e)
+        }
+    }
+
+    override fun onFinishInputView(finishingInput: Boolean) {
+        try {
+            super.onFinishInputView(finishingInput)
+            currentInputConnection?.finishComposingText()
+            composingWord.clear()
+            keyboardView?.clearSuggestions()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -66,6 +84,12 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
         try {
             super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
             updateAutoCapsState()
+            
+            // If the cursor moved away from the composing text, reset composing state
+            if (composingWord.isNotEmpty() && (newSelStart != newSelEnd || newSelStart != candidatesEnd)) {
+                composingWord.clear()
+                keyboardView?.clearSuggestions()
+            }
         } catch (e: Exception) {
             android.util.Log.e("TaifKeyboard", "Error in onUpdateSelection", e)
             saveCrashLog(e)
@@ -96,21 +120,87 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
         }
     }
 
+    private fun isWordChar(c: Char): Boolean {
+        return Character.isLetter(c) || c == '\''
+    }
+
+    private fun isWordString(s: String): Boolean {
+        if (s.isEmpty()) return false
+        return s.all { isWordChar(it) }
+    }
+
+    private fun commitAndLearnComposing() {
+        val word = composingWord.toString()
+        if (word.isNotEmpty()) {
+            val ic = currentInputConnection
+            ic?.finishComposingText()
+            if (!isSensitiveMode) {
+                dictionaryManager.learnWord(word)
+            }
+            composingWord.clear()
+            keyboardView?.clearSuggestions()
+        }
+    }
+
+    private fun updateSuggestions() {
+        try {
+            val kView = keyboardView ?: return
+            if (isSensitiveMode) {
+                kView.clearSuggestions()
+                return
+            }
+            val prefix = composingWord.toString()
+            if (prefix.isEmpty()) {
+                kView.clearSuggestions()
+                return
+            }
+            val suggestions = dictionaryManager.getSuggestions(prefix)
+            kView.showSuggestions(suggestions) { selectedSuggestion ->
+                try {
+                    val ic = currentInputConnection ?: return@showSuggestions
+                    composingWord.clear()
+                    kView.clearSuggestions()
+                    
+                    val commitText = selectedSuggestion + " "
+                    ic.commitText(commitText, 1)
+                    
+                    dictionaryManager.learnWord(selectedSuggestion)
+                    updateAutoCapsState()
+                } catch (e: Exception) {
+                    android.util.Log.e("TaifKeyboard", "Error selecting suggestion", e)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TaifKeyboard", "Error updating suggestions", e)
+        }
+    }
+
     override fun onKeyClick(code: Int, text: String?) {
         try {
             val ic = currentInputConnection ?: return
 
             when (code) {
                 KeyboardKey.CODE_BACKSPACE -> {
-                    // Delete one character
-                    val selectedText = ic.getSelectedText(0)
-                    if (selectedText.isNullOrEmpty()) {
-                        ic.deleteSurroundingText(1, 0)
+                    if (composingWord.isNotEmpty()) {
+                        composingWord.deleteCharAt(composingWord.length - 1)
+                        if (composingWord.isNotEmpty()) {
+                            ic.setComposingText(composingWord.toString(), 1)
+                            updateSuggestions()
+                        } else {
+                            ic.setComposingText("", 1)
+                            keyboardView?.clearSuggestions()
+                        }
                     } else {
-                        ic.commitText("", 1)
+                        val selectedText = ic.getSelectedText(0)
+                        if (selectedText.isNullOrEmpty()) {
+                            ic.deleteSurroundingText(1, 0)
+                        } else {
+                            ic.commitText("", 1)
+                        }
                     }
                 }
                 KeyboardKey.CODE_ENTER -> {
+                    commitAndLearnComposing()
                     val editorInfo = currentInputEditorInfo
                     if (editorInfo != null) {
                         val action = editorInfo.actionId
@@ -129,7 +219,7 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
                     }
                 }
                 KeyboardKey.CODE_SETTINGS -> {
-                    // Open Settings/Onboarding App
+                    commitAndLearnComposing()
                     val intent = Intent(this, MainActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
@@ -137,7 +227,14 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
                 }
                 else -> {
                     if (text != null) {
-                        ic.commitText(text, 1)
+                        if (isWordString(text)) {
+                            composingWord.append(text)
+                            ic.setComposingText(composingWord.toString(), 1)
+                            updateSuggestions()
+                        } else {
+                            commitAndLearnComposing()
+                            ic.commitText(text, 1)
+                        }
                     }
                 }
             }

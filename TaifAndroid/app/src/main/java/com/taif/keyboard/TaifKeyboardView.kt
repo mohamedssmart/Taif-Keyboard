@@ -48,6 +48,7 @@ class TaifKeyboardView @JvmOverloads constructor(
     // Main layout container (LinearLayout) and Floating Preview Overlay
     private val keyboardLayout: LinearLayout
     private val previewOverlay: TextView
+    private val suggestionsLayout: LinearLayout
 
     // Continuous backspace repeat runnable
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -92,6 +93,16 @@ class TaifKeyboardView @JvmOverloads constructor(
         }
         val previewParams = FrameLayout.LayoutParams(dpToPx(55), dpToPx(65))
         addView(previewOverlay, previewParams)
+
+        // 3. Initialize Suggestions Bar container
+        suggestionsLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(40)).apply {
+                bottomMargin = dpToPx(4)
+            }
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+        }
 
         applyThemeBackground()
         buildKeyboardLayout()
@@ -187,6 +198,11 @@ class TaifKeyboardView @JvmOverloads constructor(
 
         // 1. Build Toolbar / Control Bar
         keyboardLayout.addView(createToolbar())
+
+        // 1b. Build Suggestions Bar (Only if emojis are not visible)
+        if (!isEmojiVisible) {
+            keyboardLayout.addView(suggestionsLayout)
+        }
 
         // 2. Build Key Rows
         if (isEmojiVisible) {
@@ -828,6 +844,55 @@ class TaifKeyboardView @JvmOverloads constructor(
         } catch (e: Exception) {
             false
         }
+    }
+
+    fun showSuggestions(words: List<String>, onSuggestionClick: (String) -> Unit) {
+        suggestionsLayout.removeAllViews()
+        if (words.isEmpty()) {
+            suggestionsLayout.visibility = View.GONE
+            return
+        }
+
+        suggestionsLayout.visibility = View.VISIBLE
+        val theme = settings.selectedTheme
+        val isBgLight = theme == SettingsManager.THEME_LIGHT || (theme == SettingsManager.THEME_CUSTOM && isColorLight(settings.customBgColor))
+        val textColor = if (isBgLight) Color.BLACK else Color.WHITE
+        val dividerColor = if (isBgLight) Color.parseColor("#30000000") else Color.parseColor("#30FFFFFF")
+
+        for (i in words.indices) {
+            val word = words[i]
+            
+            // Suggestion text view
+            val textView = TextView(context).apply {
+                text = word
+                textSize = 16f
+                setTextColor(textColor)
+                gravity = Gravity.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.0f)
+                setOnClickListener {
+                    playFeedback()
+                    onSuggestionClick(word)
+                }
+            }
+            suggestionsLayout.addView(textView)
+
+            // Add divider between suggestions
+            if (i < words.size - 1) {
+                val divider = View(context).apply {
+                    setBackgroundColor(dividerColor)
+                    layoutParams = LinearLayout.LayoutParams(dpToPx(1), dpToPx(24)).apply {
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
+                }
+                suggestionsLayout.addView(divider)
+            }
+        }
+    }
+
+    fun clearSuggestions() {
+        suggestionsLayout.removeAllViews()
+        suggestionsLayout.visibility = View.GONE
     }
 
     private fun createiOSKeyDrawable(
