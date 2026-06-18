@@ -62,13 +62,13 @@ class TaifKeyboardView @JvmOverloads constructor(
         clipChildren = false
         clipToPadding = false
 
-        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         setPadding(dpToPx(6), dpToPx(8), dpToPx(6), dpToPx(8))
 
         // 1. Initialize main keyboard vertical layout
         keyboardLayout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT)
             clipChildren = false
             clipToPadding = false
         }
@@ -91,7 +91,7 @@ class TaifKeyboardView @JvmOverloads constructor(
             }
             background = gradient
         }
-        val previewParams = LayoutParams(dpToPx(55), dpToPx(65))
+        val previewParams = FrameLayout.LayoutParams(dpToPx(55), dpToPx(65))
         addView(previewOverlay, previewParams)
 
         applyThemeBackground()
@@ -204,7 +204,7 @@ class TaifKeyboardView @JvmOverloads constructor(
     private fun createToolbar(): View {
         val toolbar = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, getToolbarHeight()).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, getToolbarHeight()).apply {
                 bottomMargin = dpToPx(6)
             }
             gravity = Gravity.CENTER_VERTICAL
@@ -216,7 +216,7 @@ class TaifKeyboardView @JvmOverloads constructor(
         val tools = listOf("🔍", "📋", "🎨", "⚙️", "💬")
         val toolsLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1.0f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.0f)
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
         }
 
@@ -225,7 +225,7 @@ class TaifKeyboardView @JvmOverloads constructor(
                 text = tool
                 textSize = 18f
                 gravity = Gravity.CENTER
-                layoutParams = LayoutParams(dpToPx(36), dpToPx(36)).apply {
+                layoutParams = LinearLayout.LayoutParams(dpToPx(36), dpToPx(36)).apply {
                     marginStart = dpToPx(4)
                 }
                 setOnClickListener {
@@ -265,7 +265,7 @@ class TaifKeyboardView @JvmOverloads constructor(
         val langLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT)
         }
 
         val btnArabic = TextView(context).apply {
@@ -275,7 +275,7 @@ class TaifKeyboardView @JvmOverloads constructor(
             gravity = Gravity.CENTER
             setTextColor(if (currentMode == Mode.ARABIC && !isEmojiVisible) Color.WHITE else Color.GRAY)
             setBackgroundResource(currentMode == Mode.ARABIC && !isEmojiVisible)
-            layoutParams = LayoutParams(dpToPx(60), dpToPx(30)).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(60), dpToPx(30)).apply {
                 marginEnd = dpToPx(4)
             }
             setOnClickListener {
@@ -293,7 +293,7 @@ class TaifKeyboardView @JvmOverloads constructor(
             gravity = Gravity.CENTER
             setTextColor(if (currentMode == Mode.ENGLISH && !isEmojiVisible) Color.WHITE else Color.GRAY)
             setBackgroundResource(currentMode == Mode.ENGLISH && !isEmojiVisible)
-            layoutParams = LayoutParams(dpToPx(60), dpToPx(30)).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(60), dpToPx(30)).apply {
                 marginEnd = dpToPx(4)
             }
             setOnClickListener {
@@ -330,7 +330,7 @@ class TaifKeyboardView @JvmOverloads constructor(
     private fun createRowLayout(keys: List<KeyboardKey>): LinearLayout {
         val rowLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, getRowHeight()).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, getRowHeight()).apply {
                 topMargin = getRowVerticalMargin()
                 bottomMargin = getRowVerticalMargin()
             }
@@ -349,7 +349,7 @@ class TaifKeyboardView @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     private fun createKeyView(key: KeyboardKey): View {
         val frame = FrameLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, key.weight).apply {
                 marginStart = dpToPx(3)
                 marginEnd = dpToPx(3)
             }
@@ -363,7 +363,7 @@ class TaifKeyboardView @JvmOverloads constructor(
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
             applyKeyThemeStyles(this, key)
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
 
         textView.setOnTouchListener { v, event ->
@@ -531,7 +531,7 @@ class TaifKeyboardView @JvmOverloads constructor(
     private fun createBottomActionRow(): LinearLayout {
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, getRowHeight()).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, getRowHeight()).apply {
                 topMargin = dpToPx(6)
             }
             gravity = Gravity.CENTER_HORIZONTAL
@@ -566,30 +566,30 @@ class TaifKeyboardView @JvmOverloads constructor(
     private fun createEmojiLayout(): View {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(186))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(186))
         }
 
         val scroll = HorizontalScrollView(context).apply {
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
 
         val emojiContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT)
             setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10))
         }
 
         for (rowEmojis in Layouts.emojis) {
             val rowLayout = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
-                layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(40))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpToPx(40))
             }
             for (emoji in rowEmojis) {
                 val emojiBtn = TextView(context).apply {
                     text = emoji
                     textSize = 24f
                     gravity = Gravity.CENTER
-                    layoutParams = LayoutParams(dpToPx(45), dpToPx(40))
+                    layoutParams = LinearLayout.LayoutParams(dpToPx(45), dpToPx(40))
                     setOnClickListener {
                         playFeedback()
                         keyClickListener?.onKeyClick(0, emoji)
@@ -686,4 +686,3 @@ class TaifKeyboardView @JvmOverloads constructor(
         return (dp * density).toInt()
     }
 }
-
