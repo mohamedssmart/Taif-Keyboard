@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">طيف | Taif</string>
+    <string name="ime_name">لوحة مفاتيح طيف (Taif Keyboard)</string>
+    <string name="enable_keyboard">تفعيل الكيبورد (Enable Keyboard)</string>
+    <string name="select_keyboard">اختيار الكيبورد (Select Keyboard)</string>
+    <string name="try_here">جرب الكتابة هنا (Test Typing Here)...</string>
+    <string name="settings_title">إعدادات لوحة المفاتيح (Settings)</string>
+    <string name="sound_effects">أصوات عند الضغط (Keypress Sound)</string>
+    <string name="haptic_feedback">الاهتزاز عند الضغط (Haptic Feedback)</string>
+    <string name="choose_theme">اختر المظهر (Select Theme)</string>
+    <string name="theme_light">المظهر الفاتح (Light Theme)</string>
+    <string name="theme_dark">المظهر الداكن (Dark Theme)</string>
+    <string name="theme_spectrum">مظهر طيف الملون (Spectrum Theme)</string>
+    <string name="theme_glassmorphic">مظهر الزجاج الشفاف (Glassmorphic Theme)</string>
+    <string name="onboarding_subtitle">لوحة مفاتيح عربية وإلكترونية احترافية وذكية بالكامل وبمظهر جمالي فريد</string>
+</resources>

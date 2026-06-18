@@ -1,0 +1,557 @@
+package com.taif.keyboard
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.media.AudioManager
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.util.AttributeSet
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.core.content.ContextCompat
+
+class TaifKeyboardView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : LinearLayout(context, attrs, defStyleAttr) {
+
+    interface OnKeyClickListener {
+        fun onKeyClick(code: Int, text: String?)
+    }
+
+    var keyClickListener: OnKeyClickListener? = null
+    private val settings = SettingsManager(context)
+
+    // Current state
+    private var isShifted = false
+    private var currentMode = Mode.ARABIC // Default to Arabic as requested by logo/concept
+    private var isEmojiVisible = false
+
+    private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    enum class Mode {
+        ARABIC, ENGLISH, SYMBOLS, SYMBOLS_SHIFT
+    }
+
+    init {
+        orientation = VERTICAL
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        setPadding(dpToPx(6), dpToPx(8), dpToPx(6), dpToPx(8))
+        
+        applyThemeBackground()
+        buildKeyboardLayout()
+    }
+
+    private fun applyThemeBackground() {
+        val theme = settings.selectedTheme
+        background = when (theme) {
+            SettingsManager.THEME_LIGHT -> GradientDrawable().apply {
+                setColor(Color.parseColor("#F4F4F0"))
+            }
+            SettingsManager.THEME_DARK -> GradientDrawable().apply {
+                setColor(Color.parseColor("#1C1C22"))
+            }
+            SettingsManager.THEME_SPECTRUM -> GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(
+                    Color.parseColor("#1D4ED8"), // Deep Blue
+                    Color.parseColor("#701A75"), // Purple
+                    Color.parseColor("#EC4899")  // Pink
+                )
+            )
+            SettingsManager.THEME_GLASSMORPHIC -> GradientDrawable().apply {
+                setColor(Color.parseColor("#CC101016")) // Dark glass
+            }
+            else -> GradientDrawable().apply {
+                setColor(Color.parseColor("#1C1C22"))
+            }
+        }
+    }
+
+    fun updateTheme() {
+        applyThemeBackground()
+        buildKeyboardLayout()
+    }
+
+    private fun buildKeyboardLayout() {
+        removeAllViews()
+
+        // 1. Build Toolbar / Control Bar
+        addView(createToolbar())
+
+        // 2. Build Key Rows
+        if (isEmojiVisible) {
+            addView(createEmojiLayout())
+        } else {
+            val rows = when (currentMode) {
+                Mode.ARABIC -> if (isShifted) Layouts.arabicShifted else Layouts.arabicNormal
+                Mode.ENGLISH -> if (isShifted) Layouts.englishShifted else Layouts.englishNormal
+                Mode.SYMBOLS -> Layouts.symbolsNormal
+                Mode.SYMBOLS_SHIFT -> Layouts.symbolsShifted
+            }
+
+            for (row in rows) {
+                addView(createRowLayout(row))
+            }
+        }
+
+        // 3. Build Bottom Action Row (Space, Enter, Layout Switches)
+        addView(createBottomActionRow())
+    }
+
+    private fun createToolbar(): View {
+        val toolbar = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(42)).apply {
+                bottomMargin = dpToPx(6)
+            }
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        // Toolbar Icons (Search, Clipboard, Theme, Emoji Switcher, etc.)
+        val tools = listOf("🔍", "📋", "🎨", "⚙️", "💬")
+        val toolsLayout = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1.0f)
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        }
+
+        for (tool in tools) {
+            val toolBtn = TextView(context).apply {
+                text = tool
+                textSize = 18f
+                gravity = Gravity.CENTER
+                layoutParams = LayoutParams(dpToPx(36), dpToPx(36)).apply {
+                    marginStart = dpToPx(4)
+                }
+                setOnClickListener {
+                    playFeedback()
+                    when (tool) {
+                        "🎨" -> {
+                            // Cycle theme
+                            val themes = listOf(
+                                SettingsManager.THEME_LIGHT,
+                                SettingsManager.THEME_DARK,
+                                SettingsManager.THEME_SPECTRUM,
+                                SettingsManager.THEME_GLASSMORPHIC
+                            )
+                            val nextIndex = (themes.indexOf(settings.selectedTheme) + 1) % themes.size
+                            settings.selectedTheme = themes[nextIndex]
+                            updateTheme()
+                        }
+                        "⚙️" -> {
+                            keyClickListener?.onKeyClick(KeyboardKey.CODE_SETTINGS, null)
+                        }
+                        "📋" -> {
+                            // Clipboard placeholder
+                        }
+                        "🔍" -> {
+                            // Search placeholder
+                        }
+                        "💬" -> {
+                            // Quick phrases placeholder
+                        }
+                    }
+                }
+            }
+            toolsLayout.addView(toolBtn)
+        }
+        toolbar.addView(toolsLayout)
+
+        // Languages Toggle Buttons (العربية | English)
+        val langLayout = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
+        }
+
+        val btnArabic = TextView(context).apply {
+            text = "العربية"
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setTextColor(if (currentMode == Mode.ARABIC && !isEmojiVisible) Color.WHITE else Color.GRAY)
+            setBackgroundResource(currentMode == Mode.ARABIC && !isEmojiVisible)
+            layoutParams = LayoutParams(dpToPx(60), dpToPx(30)).apply {
+                marginEnd = dpToPx(4)
+            }
+            setOnClickListener {
+                playFeedback()
+                isEmojiVisible = false
+                currentMode = Mode.ARABIC
+                buildKeyboardLayout()
+            }
+        }
+
+        val btnEnglish = TextView(context).apply {
+            text = "English"
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setTextColor(if (currentMode == Mode.ENGLISH && !isEmojiVisible) Color.WHITE else Color.GRAY)
+            setBackgroundResource(currentMode == Mode.ENGLISH && !isEmojiVisible)
+            layoutParams = LayoutParams(dpToPx(60), dpToPx(30)).apply {
+                marginEnd = dpToPx(4)
+            }
+            setOnClickListener {
+                playFeedback()
+                isEmojiVisible = false
+                currentMode = Mode.ENGLISH
+                buildKeyboardLayout()
+            }
+        }
+
+        langLayout.addView(btnArabic)
+        langLayout.addView(btnEnglish)
+        toolbar.addView(langLayout)
+
+        return toolbar
+    }
+
+    private fun TextView.setBackgroundResource(selected: Boolean) {
+        val theme = settings.selectedTheme
+        val activeBgColor = if (theme == SettingsManager.THEME_LIGHT) "#E5E5DB" else "#3D3D48"
+        val inactiveBgColor = "transparent"
+
+        background = GradientDrawable().apply {
+            cornerRadius = dpToPx(15).toFloat()
+            setColor(Color.parseColor(if (selected) activeBgColor else inactiveBgColor))
+        }
+        if (selected) {
+            setTextColor(if (theme == SettingsManager.THEME_LIGHT) Color.BLACK else Color.WHITE)
+        } else {
+            setTextColor(Color.GRAY)
+        }
+    }
+
+    private fun createRowLayout(keys: List<KeyboardKey>): LinearLayout {
+        val rowLayout = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(46)).apply {
+                topMargin = dpToPx(3)
+                bottomMargin = dpToPx(3)
+            }
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+
+        for (key in keys) {
+            rowLayout.addView(createKeyView(key))
+        }
+
+        return rowLayout
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun createKeyView(key: KeyboardKey): View {
+        val frame = FrameLayout(context).apply {
+            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
+                marginStart = dpToPx(3)
+                marginEnd = dpToPx(3)
+            }
+        }
+
+        val textView = TextView(context).apply {
+            text = key.label
+            textSize = if (key.code < 0) 15f else 19f
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            
+            // Set styles based on theme
+            applyKeyThemeStyles(this, key)
+        }
+
+        // Floating Key Preview Overlay container
+        val previewOverlay = TextView(context).apply {
+            text = key.label
+            textSize = 28f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            visibility = View.INVISIBLE
+
+            // Custom speech-bubble gradient background for popup
+            val gradient = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.parseColor("#3B82F6"), Color.parseColor("#EC4899"))
+            ).apply {
+                cornerRadius = dpToPx(12).toFloat()
+            }
+            background = gradient
+
+            layoutParams = FrameLayout.LayoutParams(dpToPx(55), dpToPx(55)).apply {
+                gravity = Gravity.CENTER or Gravity.TOP
+                topMargin = -dpToPx(60) // Shift it above the keycap
+            }
+        }
+
+        textView.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
+                    playHaptic()
+                    if (key.code >= 0) {
+                        previewOverlay.visibility = View.VISIBLE
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    v.isPressed = false
+                    previewOverlay.visibility = View.INVISIBLE
+                    playClickSound()
+                    handleKeyAction(key)
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
+                    previewOverlay.visibility = View.INVISIBLE
+                }
+            }
+            true
+        }
+
+        frame.addView(textView)
+        frame.addView(previewOverlay)
+
+        // Clip children to false so the preview can float outside the key boundaries
+        frame.clipChildren = false
+        frame.clipToPadding = false
+
+        return frame
+    }
+
+    private fun applyKeyThemeStyles(textView: TextView, key: KeyboardKey) {
+        val theme = settings.selectedTheme
+
+        // General Color Choices
+        val lightKeyColor = "#FFFFFF"
+        val lightFuncColor = "#E5E5DB"
+        val darkKeyColor = "#2D2D35"
+        val darkFuncColor = "#3D3D48"
+
+        val gradientSpace = GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(Color.parseColor("#3B82F6"), Color.parseColor("#EC4899"))
+        ).apply {
+            cornerRadius = dpToPx(6).toFloat()
+        }
+
+        when (theme) {
+            SettingsManager.THEME_LIGHT -> {
+                textView.setTextColor(Color.parseColor("#1A1A1A"))
+                if (key.code == KeyboardKey.CODE_SPACE || key.code == KeyboardKey.CODE_ENTER) {
+                    textView.background = gradientSpace
+                    textView.setTextColor(Color.WHITE)
+                } else {
+                    textView.background = GradientDrawable().apply {
+                        setColor(Color.parseColor(if (key.code < 0) lightFuncColor else lightKeyColor))
+                        cornerRadius = dpToPx(6).toFloat()
+                    }
+                }
+            }
+            SettingsManager.THEME_DARK -> {
+                textView.setTextColor(Color.WHITE)
+                if (key.code == KeyboardKey.CODE_SPACE || key.code == KeyboardKey.CODE_ENTER) {
+                    textView.background = gradientSpace
+                } else {
+                    textView.background = GradientDrawable().apply {
+                        setColor(Color.parseColor(if (key.code < 0) darkFuncColor else darkKeyColor))
+                        cornerRadius = dpToPx(6).toFloat()
+                    }
+                }
+            }
+            SettingsManager.THEME_SPECTRUM -> {
+                textView.setTextColor(Color.WHITE)
+                if (key.code == KeyboardKey.CODE_SPACE) {
+                    textView.background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#FFFFFF"))
+                        cornerRadius = dpToPx(6).toFloat()
+                    }
+                    textView.setTextColor(Color.parseColor("#EC4899"))
+                } else {
+                    textView.background = GradientDrawable().apply {
+                        setColor(Color.parseColor(if (key.code < 0) "#40000000" else "#20FFFFFF"))
+                        cornerRadius = dpToPx(6).toFloat()
+                    }
+                }
+            }
+            SettingsManager.THEME_GLASSMORPHIC -> {
+                textView.setTextColor(Color.WHITE)
+                if (key.code == KeyboardKey.CODE_SPACE || key.code == KeyboardKey.CODE_ENTER) {
+                    textView.background = gradientSpace
+                } else {
+                    textView.background = GradientDrawable().apply {
+                        setColor(Color.parseColor(if (key.code < 0) "#30FFFFFF" else "#15FFFFFF"))
+                        cornerRadius = dpToPx(6).toFloat()
+                        setStroke(dpToPx(1), Color.parseColor("#20FFFFFF"))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun createBottomActionRow(): LinearLayout {
+        val row = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(48)).apply {
+                topMargin = dpToPx(6)
+            }
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+
+        // 1. Symbols Switcher (123)
+        val btnSymbols = KeyboardKey(if (currentMode == Mode.SYMBOLS) "ABC" else "123", KeyboardKey.CODE_SYMBOLS, 1.5f)
+        row.addView(createKeyView(btnSymbols))
+
+        // 2. Language Switcher (Globe icon)
+        val btnGlobe = KeyboardKey("🌐", KeyboardKey.CODE_GLOBE, 1.0f)
+        row.addView(createKeyView(btnGlobe))
+
+        // 3. Space Bar
+        val themeText = if (settings.selectedLanguage == SettingsManager.LANG_ARABIC) "طيف" else "Taif"
+        val btnSpace = KeyboardKey(themeText, KeyboardKey.CODE_SPACE, 5.0f)
+        row.addView(createKeyView(btnSpace))
+
+        // 4. Emoji Button
+        val btnEmoji = KeyboardKey("😊", KeyboardKey.CODE_EMOJI, 1.0f)
+        row.addView(createKeyView(btnEmoji))
+
+        // 5. Enter / Return Button
+        val btnEnter = KeyboardKey("⏎", KeyboardKey.CODE_ENTER, 1.5f)
+        row.addView(createKeyView(btnEnter))
+
+        return row
+    }
+
+    private fun createEmojiLayout(): View {
+        val root = LinearLayout(context).apply {
+            orientation = VERTICAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(186))
+        }
+
+        val scroll = HorizontalScrollView(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+        }
+
+        val emojiContainer = LinearLayout(context).apply {
+            orientation = VERTICAL
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
+            setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10))
+        }
+
+        for (rowEmojis in Layouts.emojis) {
+            val rowLayout = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(40))
+            }
+            for (emoji in rowEmojis) {
+                val emojiBtn = TextView(context).apply {
+                    text = emoji
+                    textSize = 24f
+                    gravity = Gravity.CENTER
+                    layoutParams = LayoutParams(dpToPx(45), dpToPx(40))
+                    setOnClickListener {
+                        playFeedback()
+                        keyClickListener?.onKeyClick(0, emoji)
+                    }
+                }
+                rowLayout.addView(emojiBtn)
+            }
+            emojiContainer.addView(rowLayout)
+        }
+
+        scroll.addView(emojiContainer)
+        root.addView(scroll)
+        return root
+    }
+
+    private fun handleKeyAction(key: KeyboardKey) {
+        when (key.code) {
+            KeyboardKey.CODE_SHIFT -> {
+                if (currentMode == Mode.SYMBOLS) {
+                    currentMode = Mode.SYMBOLS_SHIFT
+                } else if (currentMode == Mode.SYMBOLS_SHIFT) {
+                    currentMode = Mode.SYMBOLS
+                } else {
+                    isShifted = !isShifted
+                }
+                buildKeyboardLayout()
+            }
+            KeyboardKey.CODE_BACKSPACE -> {
+                keyClickListener?.onKeyClick(KeyboardKey.CODE_BACKSPACE, null)
+            }
+            KeyboardKey.CODE_ENTER -> {
+                keyClickListener?.onKeyClick(KeyboardKey.CODE_ENTER, null)
+            }
+            KeyboardKey.CODE_SPACE -> {
+                keyClickListener?.onKeyClick(KeyboardKey.CODE_SPACE, " ")
+            }
+            KeyboardKey.CODE_SYMBOLS -> {
+                isEmojiVisible = false
+                currentMode = if (currentMode == Mode.SYMBOLS || currentMode == Mode.SYMBOLS_SHIFT) {
+                    if (settings.selectedLanguage == SettingsManager.LANG_ARABIC) Mode.ARABIC else Mode.ENGLISH
+                } else {
+                    Mode.SYMBOLS
+                }
+                buildKeyboardLayout()
+            }
+            KeyboardKey.CODE_GLOBE -> {
+                isEmojiVisible = false
+                val nextLang = if (settings.selectedLanguage == SettingsManager.LANG_ARABIC) {
+                    SettingsManager.LANG_ENGLISH
+                } else {
+                    SettingsManager.LANG_ARABIC
+                }
+                settings.selectedLanguage = nextLang
+                currentMode = if (nextLang == SettingsManager.LANG_ARABIC) Mode.ARABIC else Mode.ENGLISH
+                buildKeyboardLayout()
+            }
+            KeyboardKey.CODE_EMOJI -> {
+                isEmojiVisible = !isEmojiVisible
+                buildKeyboardLayout()
+            }
+            KeyboardKey.CODE_SETTINGS -> {
+                keyClickListener?.onKeyClick(KeyboardKey.CODE_SETTINGS, null)
+            }
+            else -> {
+                keyClickListener?.onKeyClick(key.code, key.label)
+            }
+        }
+    }
+
+    private fun playFeedback() {
+        playClickSound()
+        playHaptic()
+    }
+
+    private fun playClickSound() {
+        if (settings.isSoundEnabled) {
+            audioManager.playSoundEffect(AudioManager.FX_KEYPRESS_STANDARD)
+        }
+    }
+
+    private fun playHaptic() {
+        if (settings.isHapticEnabled) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(15)
+            }
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        val density = context.resources.displayMetrics.density
+        return (dp * density).toInt()
+    }
+}

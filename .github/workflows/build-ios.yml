@@ -1,0 +1,45 @@
+name: Build iOS App
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build iOS (TaifiOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate --spec TaifiOS/project.yml
+
+      - name: Build iOS Application (Unsigned)
+        run: |
+          xcodebuild -project TaifiOS/TaifiOS.xcodeproj \
+                     -scheme TaifiOS \
+                     -sdk iphoneos \
+                     -configuration Debug \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     clean build
+
+      - name: Archive Built Application
+        run: |
+          mkdir -p build-output
+          cp -R ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug-iphoneos/TaifiOS.app build-output/
+          zip -r build-output/TaifiOS.zip build-output/TaifiOS.app
+
+      - name: Upload iOS App Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TaifiOS-Build
+          path: build-output/TaifiOS.zip

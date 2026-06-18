@@ -1,0 +1,22 @@
+name: TaifiOS
+options:
+  bundleIdPrefix: com.taif
+targets:
+  TaifiOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources: 
+      - TaifiOS
+    settings:
+      INFOPLIST_FILE: TaifiOS/Info.plist
+    dependencies:
+      - target: TaifKeyboardExtension
+  TaifKeyboardExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources: 
+      - TaifKeyboardExtension
+    settings:
+      INFOPLIST_FILE: TaifKeyboardExtension/Info.plist

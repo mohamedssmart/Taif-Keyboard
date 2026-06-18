@@ -1,0 +1,15 @@
+# Gradle files
+.gradle/
+/build/
+/*/build/
+local.properties
+*.apk
+
+# iOS files
+.DS_Store
+DerivedData/
+*.xcworkspace
+xcuserdata/
+Pods/
+build/
+TaifiOS/TaifiOS.xcodeproj
