@@ -19,8 +19,49 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        // Refresh theme configuration when the keyboard is displayed
-        keyboardView?.updateTheme()
+        
+        val kView = keyboardView ?: return
+        
+        // 1. Refresh theme configuration
+        kView.updateTheme()
+        
+        // 2. Pass IME Options to update the enter key text/label dynamically
+        val imeOptions = info?.imeOptions ?: EditorInfo.IME_ACTION_UNSPECIFIED
+        kView.updateImeOptions(imeOptions)
+        
+        // 3. Handle Sensitive Mode (Passwords/PINs)
+        val inputClass = info?.inputType?.and(EditorInfo.TYPE_MASK_CLASS)
+        val variation = info?.inputType?.and(EditorInfo.TYPE_MASK_VARIATION)
+        val isPassword = inputClass == EditorInfo.TYPE_CLASS_NUMBER && variation == EditorInfo.TYPE_NUMBER_VARIATION_PASSWORD ||
+                inputClass == EditorInfo.TYPE_CLASS_TEXT && (
+                variation == EditorInfo.TYPE_TEXT_VARIATION_PASSWORD ||
+                variation == EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+                variation == EditorInfo.TYPE_TEXT_VARIATION_WEB_PASSWORD
+                )
+        kView.setSensitiveMode(isPassword)
+
+        // 4. Handle initial Auto-Capitalization state
+        updateAutoCapsState()
+    }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        updateAutoCapsState()
+    }
+
+    private fun updateAutoCapsState() {
+        val ic = currentInputConnection ?: return
+        val info = currentInputEditorInfo ?: return
+        val caps = ic.getCursorCapsMode(info.inputType)
+        val shouldShift = caps != 0
+        keyboardView?.setAutoShift(shouldShift)
     }
 
     override fun onKeyClick(code: Int, text: String?) {
@@ -38,8 +79,11 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
             }
             KeyboardKey.CODE_ENTER -> {
                 val action = currentInputEditorInfo.actionId
+                val actionId = currentInputEditorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
                 if (action != 0) {
                     ic.performEditorAction(action)
+                } else if (actionId != EditorInfo.IME_ACTION_NONE && actionId != EditorInfo.IME_ACTION_UNSPECIFIED) {
+                    ic.performEditorAction(actionId)
                 } else {
                     ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
                     ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
@@ -60,3 +104,4 @@ class TaifInputMethodService : InputMethodService(), TaifKeyboardView.OnKeyClick
         }
     }
 }
+

@@ -10,6 +10,16 @@ class KeyboardViewController: UIInputViewController {
     var isShifted = false
     var isSymbols = false
     
+    // UI References
+    var enterButton: UIButton?
+    
+    // Backspace continuous delete timer
+    private var deleteTimer: Timer?
+    private var deleteCount = 0
+    
+    // Sensitive Fields Flag
+    private var isSecureField = false
+    
     // Layout characters definitions
     let arabicRow1 = ["ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج"]
     let arabicRow2 = ["ش", "س", "ي", "ب", "ل", "ا", "ت", "ن", "م", "ك", "ط"]
@@ -30,11 +40,26 @@ class KeyboardViewController: UIInputViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        updateAutoShiftState()
+        updateEnterKeyTitle()
         applyTheme()
     }
     
+    override func textDidChange(_ textInput: UITextInput?) {
+        super.textDidChange(textInput)
+        
+        // Check secure input fields (Sensitive Fields Management)
+        if let traits = textInput as? UITextInputTraits {
+            isSecureField = traits.isSecureTextEntry == .yes
+        } else {
+            isSecureField = false
+        }
+        
+        updateAutoShiftState()
+        updateEnterKeyTitle()
+    }
+    
     func setupKeyboard() {
-        // Main container view
         keyboardView = UIView()
         keyboardView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(keyboardView)
@@ -50,7 +75,6 @@ class KeyboardViewController: UIInputViewController {
     }
     
     func buildKeyboardLayout() {
-        // Clear previous subviews
         for subview in keyboardView.subviews {
             subview.removeFromSuperview()
         }
@@ -95,6 +119,12 @@ class KeyboardViewController: UIInputViewController {
         
         let backspaceBtn = createButton(title: "⌫", isSpecial: true)
         backspaceBtn.addTarget(self, action: #selector(backspacePressed), for: .touchUpInside)
+        
+        // Add gesture recognizer for accelerated deletion
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleBackspaceLongPress(_:)))
+        longPress.minimumPressDuration = 0.4
+        backspaceBtn.addGestureRecognizer(longPress)
+        
         row3Stack.addArrangedSubview(backspaceBtn)
         
         mainStack.addArrangedSubview(row3Stack)
@@ -115,9 +145,10 @@ class KeyboardViewController: UIInputViewController {
         bottomStack.addArrangedSubview(spaceBtn)
         
         // Setup Enter button
-        let enterBtn = createButton(title: "⏎", isSpecial: true)
+        let enterBtn = createButton(title: getEnterKeyTitle(), isSpecial: true)
         enterBtn.addTarget(self, action: #selector(enterPressed), for: .touchUpInside)
         bottomStack.addArrangedSubview(enterBtn)
+        enterButton = enterBtn
         
         mainStack.addArrangedSubview(bottomStack)
         
@@ -144,7 +175,72 @@ class KeyboardViewController: UIInputViewController {
         btn.titleLabel?.font = .systemFont(ofSize: 19, weight: .semibold)
         btn.layer.cornerRadius = 6
         btn.layer.masksToBounds = true
+        
+        // Add Floating Key Press Previews targets for character buttons
+        if !isSpecial && title.count == 1 {
+            btn.addTarget(self, action: #selector(keyTouchDown(_:)), for: .touchDown)
+            btn.addTarget(self, action: #selector(keyTouchUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        }
+        
         return btn
+    }
+    
+    func getEnterKeyTitle() -> String {
+        let isArabic = self.isArabic
+        let returnType = textDocumentProxy.returnKeyType
+        
+        switch returnType {
+        case .go:
+            return isArabic ? "ذهاب" : "Go"
+        case .search:
+            return isArabic ? "بحث" : "Search"
+        case .send:
+            return isArabic ? "إرسال" : "Send"
+        case .next:
+            return isArabic ? "التالي" : "Next"
+        case .done:
+            return isArabic ? "تم" : "Done"
+        default:
+            return "⏎"
+        }
+    }
+    
+    func updateEnterKeyTitle() {
+        let title = getEnterKeyTitle()
+        enterButton?.setTitle(title, for: .normal)
+        applyTheme() // Re-apply theme styling for updated action label
+    }
+    
+    func updateAutoShiftState() {
+        guard !isArabic else { return }
+        
+        let autoCapType = textDocumentProxy.autocapitalizationType ?? .sentences
+        if autoCapType == .none {
+            isShifted = false
+            return
+        }
+        
+        if autoCapType == .allCharacters {
+            isShifted = true
+            return
+        }
+        
+        let context = textDocumentProxy.documentContextBeforeInput ?? ""
+        if context.isEmpty {
+            isShifted = true
+        } else {
+            if autoCapType == .sentences {
+                let trimmed = context.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty || trimmed.hasSuffix(".") || trimmed.hasSuffix("!") || trimmed.hasSuffix("?") {
+                    isShifted = true
+                } else {
+                    isShifted = false
+                }
+            } else if autoCapType == .words {
+                isShifted = context.hasSuffix(" ") || context.hasSuffix("\n")
+            }
+        }
+        buildKeyboardLayout()
     }
     
     func applyTheme() {
@@ -162,7 +258,6 @@ class KeyboardViewController: UIInputViewController {
             gradient.startPoint = CGPoint(x: 0, y: 0)
             gradient.endPoint = CGPoint(x: 1, y: 1)
             
-            // Remove previous gradients if any
             view.layer.sublayers?.filter { $0 is CAGradientLayer }.forEach { $0.removeFromSuperlayer() }
             view.layer.insertSublayer(gradient, at: 0)
         } else {
@@ -171,16 +266,18 @@ class KeyboardViewController: UIInputViewController {
         }
         
         // Stylize all buttons
-        for rowStack in keyboardView.subviews.first?.subviews ?? [] {
+        guard let mainStack = keyboardView.subviews.first as? UIStackView else { return }
+        for rowStack in mainStack.arrangedSubviews {
             guard let stack = rowStack as? UIStackView else { continue }
             for btnView in stack.arrangedSubviews {
                 guard let btn = btnView as? UIButton else { continue }
                 
                 let title = btn.currentTitle ?? ""
-                let isSpaceOrEnter = title == "Space" || title == "طيف" || title == "⏎"
+                let isSpaceOrEnter = title == "Space" || title == "طيف" || title == "⏎" ||
+                                     title == "Go" || title == "Search" || title == "Send" || title == "Next" || title == "Done" ||
+                                     title == "ذهاب" || title == "بحث" || title == "إرسال" || title == "التالي" || title == "تم"
                 
                 if isSpaceOrEnter {
-                    // Modern gradient background for spacebar
                     btn.backgroundColor = UIColor(red: 236.0/255.0, green: 72.0/255.0, blue: 153.0/255.0, alpha: 1) // Fallback pink
                     btn.setTitleColor(.white, for: .normal)
                 } else {
@@ -197,16 +294,37 @@ class KeyboardViewController: UIInputViewController {
         if let title = sender.currentTitle {
             textDocumentProxy.insertText(title)
         }
+        // Capitalization updates on character press
+        updateAutoShiftState()
     }
     
     @objc func spacePressed() {
         playFeedback()
         textDocumentProxy.insertText(" ")
+        updateAutoShiftState()
     }
     
     @objc func backspacePressed() {
         playFeedback()
         textDocumentProxy.deleteBackward()
+        updateAutoShiftState()
+    }
+    
+    @objc func handleBackspaceLongPress(_ gesture: UILongPressGestureRecognizer) {
+        if gesture.state == .began {
+            deleteCount = 0
+            deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
+                guard let self = self else { return }
+                self.playFeedback()
+                self.textDocumentProxy.deleteBackward()
+                self.deleteCount += 1
+                self.updateAutoShiftState()
+            }
+            RunLoop.current.add(deleteTimer!, forMode: .common)
+        } else if gesture.state == .ended || gesture.state == .cancelled {
+            deleteTimer?.invalidate()
+            deleteTimer = nil
+        }
     }
     
     @objc func shiftPressed() {
@@ -218,12 +336,22 @@ class KeyboardViewController: UIInputViewController {
     @objc func enterPressed() {
         playFeedback()
         textDocumentProxy.insertText("\n")
+        updateAutoShiftState()
     }
     
     @objc func toggleLanguage() {
         playFeedback()
         isArabic = !isArabic
         buildKeyboardLayout()
+    }
+    
+    @objc func keyTouchDown(_ sender: UIButton) {
+        guard let title = sender.currentTitle else { return }
+        PreviewManager.shared.showPreview(character: title, forButton: sender, inParentView: self.view)
+    }
+    
+    @objc func keyTouchUp(_ sender: UIButton) {
+        PreviewManager.shared.hidePreview()
     }
     
     func playFeedback() {
@@ -236,3 +364,4 @@ class KeyboardViewController: UIInputViewController {
         }
     }
 }
+

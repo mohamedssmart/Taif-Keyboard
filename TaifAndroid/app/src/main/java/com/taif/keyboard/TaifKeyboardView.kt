@@ -7,6 +7,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.AttributeSet
@@ -14,17 +16,17 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 
 class TaifKeyboardView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : LinearLayout(context, attrs, defStyleAttr) {
+) : FrameLayout(context, attrs, defStyleAttr) {
 
     interface OnKeyClickListener {
         fun onKeyClick(code: Int, text: String?)
@@ -37,21 +39,90 @@ class TaifKeyboardView @JvmOverloads constructor(
     private var isShifted = false
     private var currentMode = Mode.ARABIC // Default to Arabic as requested by logo/concept
     private var isEmojiVisible = false
+    private var currentImeOptions: Int = EditorInfo.IME_ACTION_UNSPECIFIED
+    private var isSensitiveMode: Boolean = false
 
     private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    // Main layout container (LinearLayout) and Floating Preview Overlay
+    private val keyboardLayout: LinearLayout
+    private val previewOverlay: TextView
+
+    // Continuous backspace repeat runnable
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var deleteRunnable: Runnable? = null
 
     enum class Mode {
         ARABIC, ENGLISH, SYMBOLS, SYMBOLS_SHIFT
     }
 
     init {
-        orientation = VERTICAL
+        // Prevent clipping of preview bubbles
+        clipChildren = false
+        clipToPadding = false
+
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
         setPadding(dpToPx(6), dpToPx(8), dpToPx(6), dpToPx(8))
-        
+
+        // 1. Initialize main keyboard vertical layout
+        keyboardLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+            clipChildren = false
+            clipToPadding = false
+        }
+        addView(keyboardLayout)
+
+        // 2. Initialize single shared preview overlay (View Pooling)
+        previewOverlay = TextView(context).apply {
+            textSize = 28f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            visibility = View.INVISIBLE
+
+            // Custom speech-bubble gradient background for popup
+            val gradient = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.parseColor("#3B82F6"), Color.parseColor("#EC4899"))
+            ).apply {
+                cornerRadius = dpToPx(12).toFloat()
+            }
+            background = gradient
+        }
+        val previewParams = LayoutParams(dpToPx(55), dpToPx(65))
+        addView(previewOverlay, previewParams)
+
         applyThemeBackground()
         buildKeyboardLayout()
+    }
+
+    private fun getRowHeight(): Int {
+        val orientation = context.resources.configuration.orientation
+        return if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            dpToPx(34)
+        } else {
+            dpToPx(46)
+        }
+    }
+
+    private fun getToolbarHeight(): Int {
+        val orientation = context.resources.configuration.orientation
+        return if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            dpToPx(32)
+        } else {
+            dpToPx(42)
+        }
+    }
+
+    private fun getRowVerticalMargin(): Int {
+        val orientation = context.resources.configuration.orientation
+        return if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            dpToPx(2)
+        } else {
+            dpToPx(3)
+        }
     }
 
     private fun applyThemeBackground() {
@@ -85,15 +156,34 @@ class TaifKeyboardView @JvmOverloads constructor(
         buildKeyboardLayout()
     }
 
+    fun updateImeOptions(imeOptions: Int) {
+        currentImeOptions = imeOptions
+        buildKeyboardLayout()
+    }
+
+    fun setSensitiveMode(sensitive: Boolean) {
+        isSensitiveMode = sensitive
+    }
+
+    fun setAutoShift(shouldShift: Boolean) {
+        if (currentMode == Mode.ENGLISH) {
+            // Auto shift layout only if not in manual cap lock
+            if (isShifted != shouldShift) {
+                isShifted = shouldShift
+                buildKeyboardLayout()
+            }
+        }
+    }
+
     private fun buildKeyboardLayout() {
-        removeAllViews()
+        keyboardLayout.removeAllViews()
 
         // 1. Build Toolbar / Control Bar
-        addView(createToolbar())
+        keyboardLayout.addView(createToolbar())
 
         // 2. Build Key Rows
         if (isEmojiVisible) {
-            addView(createEmojiLayout())
+            keyboardLayout.addView(createEmojiLayout())
         } else {
             val rows = when (currentMode) {
                 Mode.ARABIC -> if (isShifted) Layouts.arabicShifted else Layouts.arabicNormal
@@ -103,27 +193,29 @@ class TaifKeyboardView @JvmOverloads constructor(
             }
 
             for (row in rows) {
-                addView(createRowLayout(row))
+                keyboardLayout.addView(createRowLayout(row))
             }
         }
 
         // 3. Build Bottom Action Row (Space, Enter, Layout Switches)
-        addView(createBottomActionRow())
+        keyboardLayout.addView(createBottomActionRow())
     }
 
     private fun createToolbar(): View {
         val toolbar = LinearLayout(context).apply {
-            orientation = HORIZONTAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(42)).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, getToolbarHeight()).apply {
                 bottomMargin = dpToPx(6)
             }
             gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
         }
 
         // Toolbar Icons (Search, Clipboard, Theme, Emoji Switcher, etc.)
         val tools = listOf("🔍", "📋", "🎨", "⚙️", "💬")
         val toolsLayout = LinearLayout(context).apply {
-            orientation = HORIZONTAL
+            orientation = LinearLayout.HORIZONTAL
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1.0f)
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
         }
@@ -140,7 +232,6 @@ class TaifKeyboardView @JvmOverloads constructor(
                     playFeedback()
                     when (tool) {
                         "🎨" -> {
-                            // Cycle theme
                             val themes = listOf(
                                 SettingsManager.THEME_LIGHT,
                                 SettingsManager.THEME_DARK,
@@ -172,7 +263,7 @@ class TaifKeyboardView @JvmOverloads constructor(
 
         // Languages Toggle Buttons (العربية | English)
         val langLayout = LinearLayout(context).apply {
-            orientation = HORIZONTAL
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
         }
@@ -238,12 +329,14 @@ class TaifKeyboardView @JvmOverloads constructor(
 
     private fun createRowLayout(keys: List<KeyboardKey>): LinearLayout {
         val rowLayout = LinearLayout(context).apply {
-            orientation = HORIZONTAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(46)).apply {
-                topMargin = dpToPx(3)
-                bottomMargin = dpToPx(3)
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, getRowHeight()).apply {
+                topMargin = getRowVerticalMargin()
+                bottomMargin = getRowVerticalMargin()
             }
             gravity = Gravity.CENTER_HORIZONTAL
+            clipChildren = false
+            clipToPadding = false
         }
 
         for (key in keys) {
@@ -256,10 +349,12 @@ class TaifKeyboardView @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     private fun createKeyView(key: KeyboardKey): View {
         val frame = FrameLayout(context).apply {
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, key.weight).apply {
                 marginStart = dpToPx(3)
                 marginEnd = dpToPx(3)
             }
+            clipChildren = false
+            clipToPadding = false
         }
 
         val textView = TextView(context).apply {
@@ -267,33 +362,8 @@ class TaifKeyboardView @JvmOverloads constructor(
             textSize = if (key.code < 0) 15f else 19f
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
-            
-            // Set styles based on theme
             applyKeyThemeStyles(this, key)
-        }
-
-        // Floating Key Preview Overlay container
-        val previewOverlay = TextView(context).apply {
-            text = key.label
-            textSize = 28f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-            visibility = View.INVISIBLE
-
-            // Custom speech-bubble gradient background for popup
-            val gradient = GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.parseColor("#3B82F6"), Color.parseColor("#EC4899"))
-            ).apply {
-                cornerRadius = dpToPx(12).toFloat()
-            }
-            background = gradient
-
-            layoutParams = FrameLayout.LayoutParams(dpToPx(55), dpToPx(55)).apply {
-                gravity = Gravity.CENTER or Gravity.TOP
-                topMargin = -dpToPx(60) // Shift it above the keycap
-            }
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         }
 
         textView.setOnTouchListener { v, event ->
@@ -301,38 +371,83 @@ class TaifKeyboardView @JvmOverloads constructor(
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
                     playHaptic()
+
+                    // Synchronously position and display floating preview bubble above the key
                     if (key.code >= 0) {
+                        previewOverlay.text = key.label
                         previewOverlay.visibility = View.VISIBLE
+
+                        val parentLocation = IntArray(2)
+                        this@TaifKeyboardView.getLocationInWindow(parentLocation)
+
+                        val keyLocation = IntArray(2)
+                        v.getLocationInWindow(keyLocation)
+
+                        val relativeX = keyLocation[0] - parentLocation[0]
+                        val relativeY = keyLocation[1] - parentLocation[1]
+
+                        val previewWidth = dpToPx(55)
+                        val previewHeight = dpToPx(65)
+
+                        val xOffset = relativeX + (v.width - previewWidth) / 2
+                        val yOffset = relativeY - previewHeight + dpToPx(8)
+
+                        previewOverlay.x = xOffset.toFloat()
+                        previewOverlay.y = yOffset.toFloat()
+                    }
+
+                    // Handle accelerated continuous deletion
+                    if (key.code == KeyboardKey.CODE_BACKSPACE) {
+                        handleKeyAction(key)
+                        
+                        deleteRunnable?.let { mainHandler.removeCallbacks(it) }
+                        deleteRunnable = object : Runnable {
+                            var count = 0
+                            override fun run() {
+                                handleKeyAction(key)
+                                count++
+                                val delay = if (count > 15) 35L else 70L
+                                mainHandler.postDelayed(this, delay)
+                            }
+                        }
+                        mainHandler.postDelayed(deleteRunnable!!, 400)
                     }
                 }
                 MotionEvent.ACTION_UP -> {
                     v.isPressed = false
-                    previewOverlay.visibility = View.INVISIBLE
-                    playClickSound()
-                    handleKeyAction(key)
+                    if (key.code >= 0) {
+                        previewOverlay.visibility = View.INVISIBLE
+                    }
+
+                    if (key.code == KeyboardKey.CODE_BACKSPACE) {
+                        deleteRunnable?.let { mainHandler.removeCallbacks(it) }
+                        deleteRunnable = null
+                    } else {
+                        playClickSound()
+                        handleKeyAction(key)
+                    }
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    previewOverlay.visibility = View.INVISIBLE
+                    if (key.code >= 0) {
+                        previewOverlay.visibility = View.INVISIBLE
+                    }
+                    if (key.code == KeyboardKey.CODE_BACKSPACE) {
+                        deleteRunnable?.let { mainHandler.removeCallbacks(it) }
+                        deleteRunnable = null
+                    }
                 }
             }
             true
         }
 
         frame.addView(textView)
-        frame.addView(previewOverlay)
-
-        // Clip children to false so the preview can float outside the key boundaries
-        frame.clipChildren = false
-        frame.clipToPadding = false
-
         return frame
     }
 
     private fun applyKeyThemeStyles(textView: TextView, key: KeyboardKey) {
         val theme = settings.selectedTheme
 
-        // General Color Choices
         val lightKeyColor = "#FFFFFF"
         val lightFuncColor = "#E5E5DB"
         val darkKeyColor = "#2D2D35"
@@ -399,13 +514,29 @@ class TaifKeyboardView @JvmOverloads constructor(
         }
     }
 
+    private fun getEnterKeyLabel(): String {
+        val actionId = currentImeOptions and EditorInfo.IME_MASK_ACTION
+        val isArabic = settings.selectedLanguage == SettingsManager.LANG_ARABIC
+
+        return when (actionId) {
+            EditorInfo.IME_ACTION_GO -> if (isArabic) "ذهاب" else "Go"
+            EditorInfo.IME_ACTION_SEARCH -> if (isArabic) "بحث" else "Search"
+            EditorInfo.IME_ACTION_SEND -> if (isArabic) "إرسال" else "Send"
+            EditorInfo.IME_ACTION_NEXT -> if (isArabic) "التالي" else "Next"
+            EditorInfo.IME_ACTION_DONE -> if (isArabic) "تم" else "Done"
+            else -> "⏎"
+        }
+    }
+
     private fun createBottomActionRow(): LinearLayout {
         val row = LinearLayout(context).apply {
-            orientation = HORIZONTAL
-            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(48)).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, getRowHeight()).apply {
                 topMargin = dpToPx(6)
             }
             gravity = Gravity.CENTER_HORIZONTAL
+            clipChildren = false
+            clipToPadding = false
         }
 
         // 1. Symbols Switcher (123)
@@ -417,8 +548,8 @@ class TaifKeyboardView @JvmOverloads constructor(
         row.addView(createKeyView(btnGlobe))
 
         // 3. Space Bar
-        val themeText = if (settings.selectedLanguage == SettingsManager.LANG_ARABIC) "طيف" else "Taif"
-        val btnSpace = KeyboardKey(themeText, KeyboardKey.CODE_SPACE, 5.0f)
+        val spaceText = if (settings.selectedLanguage == SettingsManager.LANG_ARABIC) "طيف" else "Taif"
+        val btnSpace = KeyboardKey(spaceText, KeyboardKey.CODE_SPACE, 5.0f)
         row.addView(createKeyView(btnSpace))
 
         // 4. Emoji Button
@@ -426,7 +557,7 @@ class TaifKeyboardView @JvmOverloads constructor(
         row.addView(createKeyView(btnEmoji))
 
         // 5. Enter / Return Button
-        val btnEnter = KeyboardKey("⏎", KeyboardKey.CODE_ENTER, 1.5f)
+        val btnEnter = KeyboardKey(getEnterKeyLabel(), KeyboardKey.CODE_ENTER, 1.5f)
         row.addView(createKeyView(btnEnter))
 
         return row
@@ -434,7 +565,7 @@ class TaifKeyboardView @JvmOverloads constructor(
 
     private fun createEmojiLayout(): View {
         val root = LinearLayout(context).apply {
-            orientation = VERTICAL
+            orientation = LinearLayout.VERTICAL
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dpToPx(186))
         }
 
@@ -443,14 +574,14 @@ class TaifKeyboardView @JvmOverloads constructor(
         }
 
         val emojiContainer = LinearLayout(context).apply {
-            orientation = VERTICAL
+            orientation = LinearLayout.VERTICAL
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT)
             setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10))
         }
 
         for (rowEmojis in Layouts.emojis) {
             val rowLayout = LinearLayout(context).apply {
-                orientation = HORIZONTAL
+                orientation = LinearLayout.HORIZONTAL
                 layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dpToPx(40))
             }
             for (emoji in rowEmojis) {
@@ -555,3 +686,4 @@ class TaifKeyboardView @JvmOverloads constructor(
         return (dp * density).toInt()
     }
 }
+
